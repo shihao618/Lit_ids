@@ -2,6 +2,7 @@
 data/
 docs/
 tests/
+.github/
 .env
 .env.*
 README.md
@@ -10,6 +11,7 @@ requirements-dev.txt
 .gitignore
 .dockerignore
 docker-compose.yml
+docker-compose.fnos.yml
 Dockerfile
 __pycache__/
 *.pyc

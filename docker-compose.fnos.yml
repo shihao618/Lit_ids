@@ -1,0 +1,94 @@
+# =============================================================================
+# LIT API Gateway for fnOS（飞牛OS）Docker Compose
+#
+# 使用（fnOS 应用中心 → Docker → Compose → 新建项目）：
+#   1) 只需要 docker-compose.fnos.yml（不需要源码、不需要构建）
+#   2) 先创建本地持久化目录（属主为 NAS 用户）：
+#        mkdir -p data
+#   3) Compose 文件选 docker-compose.fnos.yml，拉取镜像并启动
+#
+# 镜像：ghcr.io/shihao618/lit-api-gateway:latest
+#   GitHub Actions 自动构建（linux/amd64 + linux/arm64），推送 main 后自动更新。
+#   首次使用请到 GitHub → Packages → lit-api-gateway → Package settings
+#   把可见性改为 Public；或在 NAS 上 docker login ghcr.io 后使用私有镜像。
+#
+# 数据持久化（本编排的核心）：
+#   左侧是 NAS 上的真实目录（默认 ./data，相对项目目录），
+#   可在项目 .env 用 DATA_PATH 覆盖为绝对路径（如 /vol1/1000/docker/lit-api/data）。
+#   容器以 PUID:PGID（默认 1000:1000，即 fnOS 默认用户）运行，保证能写入这些目录。
+#   注意：目录必须提前创建并归该用户所有；若由 Docker 自动创建会归 root，容器将无法写入。
+#
+# 可选 .env（与 docker-compose.fnos.yml 同目录）：
+#   PUID=1000
+#   PGID=1000
+#   DATA_PATH=./data
+#   API_PORT=10381
+#   API_BIND=0.0.0.0
+#   ADMIN_USERNAME=admin
+#   ADMIN_PASSWORD=请改成你的后台初始密码      # 必填，至少 6 位
+#   API_KEY=                                 # 可选：管理员初始 API Key（留空自动生成，可在后台查看）
+#   ADMIN_SECRET=                            # 可选：后台 cookie 签名密钥（不设会自动生成到 data/.gateway_secret）
+#   TZ=Asia/Shanghai
+#
+# 首次启动会在 data/ 自动生成（全部写入挂载目录）：
+#   - users.json           用户 / 统一认证账号 / API Key
+#   - settings.json        后台「系统设置」
+#   - sessions/<uid>.json  各用户 CAS 会话（TGC）
+#   - .gateway_secret      后台 cookie 签名密钥
+#
+# 更新镜像：
+#   docker compose -f docker-compose.fnos.yml pull
+#   docker compose -f docker-compose.fnos.yml up -d
+#
+# 备份/迁移：直接打包 data/ 目录即可（含 .gateway_secret、users.json，必须一起迁移）。
+# =============================================================================
+name: lit-api-gateway
+
+services:
+  lit-api:
+    image: ghcr.io/shihao618/lit-api-gateway:latest
+    container_name: lit-api-gateway
+    # 以 NAS 用户运行（fnOS 默认 1000:1000），DATA_PATH 需提前创建并归该用户
+    user: "${PUID:-1000}:${PGID:-1000}"
+    environment:
+      DATA_DIR: /data
+      TZ: "${TZ:-Asia/Shanghai}"
+      HOME: /tmp
+      TMPDIR: /tmp
+      ADMIN_USERNAME: "${ADMIN_USERNAME:-admin}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:?请在项目 .env 中设置 ADMIN_PASSWORD（后台初始密码，至少 6 位）}"
+      # 留空则首启动自动生成，可在后台「我的账号 / API Key」查看
+      API_KEY: "${API_KEY:-}"
+      # 留空则自动生成到 data/.gateway_secret
+      ADMIN_SECRET: "${ADMIN_SECRET:-}"
+    ports:
+      - "${API_BIND:-0.0.0.0}:${API_PORT:-10381}:10381"
+    volumes:
+      # 默认项目根目录 data/；可在 .env 用 DATA_PATH 覆盖为绝对路径（如 /vol1/1000/docker/lit-api/data）
+      - "${DATA_PATH:-./data}:/data"
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 20s
+    # 根文件系统只读；仅 /data（用户数据）与 /tmp 可写
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request;urllib.request.urlopen('http://127.0.0.1:10381/healthz', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

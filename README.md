@@ -104,6 +104,43 @@ curl -H "X-API-Key: <你的 API Key>" \
 | 运行加固 | `read_only` 根文件系统 + `/tmp` tmpfs、`cap_drop: ALL`、`no-new-privileges`、`init: true`、`pids_limit`、日志轮转、`restart: unless-stopped`、`stop_grace_period` |
 | 端口暴露 | 默认仅绑定 `127.0.0.1`（可通过 `API_BIND` 改） |
 
+### 2.2 fnOS（飞牛OS）部署
+
+fnOS 上不需要源码、不需要构建，直接用 [docker-compose.fnos.yml](docker-compose.fnos.yml) 拉取镜像运行：
+
+1. fnOS「应用中心 → Docker → Compose → 新建项目」，粘贴 `docker-compose.fnos.yml`；
+2. **提前创建数据目录并归 NAS 用户所有**（默认 UID/GID 1000，即 fnOS 默认用户）：
+
+   ```bash
+   mkdir -p data
+   ```
+
+3. 项目 `.env`（可选，与 compose 同目录）：
+
+   ```env
+   ADMIN_PASSWORD=改成你的后台初始密码
+   API_KEY=                      # 留空则自动生成，可在后台「我的账号」查看
+   DATA_PATH=./data              # 或绝对路径，如 /vol1/1000/docker/lit-api/data
+   # PUID=1000
+   # PGID=1000
+   # API_PORT=10381
+   # API_BIND=0.0.0.0
+   ```
+
+4. 启动后访问 `http://<NAS-IP>:10381/admin`，用 `admin / ADMIN_PASSWORD` 登录，再去「统一认证」配置自己的账号。
+
+镜像由 GitHub Actions 自动构建（`linux/amd64` + `linux/arm64`）并推送到
+`ghcr.io/shihao618/lit-api-gateway:latest`；首次使用需到 GitHub → Packages 把该镜像包设为 **Public**
+（或在 NAS 上 `docker login ghcr.io` 后使用私有镜像）。
+
+* 数据都在 `data/`：`users.json`、`sessions/`、`settings.json`、`.gateway_secret`；
+  备份/迁移直接打包该目录（`.gateway_secret` 必须一起迁移，否则后台登录态失效）。
+* 更新镜像：
+  ```bash
+  docker compose -f docker-compose.fnos.yml pull
+  docker compose -f docker-compose.fnos.yml up -d
+  ```
+
 ## 3. 配置
 
 ### 3.1 `.env`（仅初始化 / 部署基础设施）
@@ -252,8 +289,10 @@ app/
     auth.py             会话状态/登录（按 API Key 用户）
     health.py           健康检查
 tests/                  离线测试（26 个）：认证核心 / 接口 / 多用户后台 / 系统设置
-Dockerfile              python:3.12-slim、非 root、健康检查
-docker-compose.yml      数据卷 ./data:/data、env_file .env、端口 10381、restart 策略
+Dockerfile              python:3.12-slim-bookworm、非 root、健康检查
+docker-compose.yml      本地/服务器部署（源码构建）：数据卷 ./data:/data、env_file .env、端口 10381
+docker-compose.fnos.yml fnOS（飞牛OS）部署：直接用 GHCR 镜像，无需源码/构建
+.github/workflows/docker-publish.yml  GitHub Actions：构建并推送多架构镜像到 GHCR
 .env.example            初始化配置模板
 docs/                   界面截图
 data/                   用户表、各用户 CAS 会话、系统设置（运行时生成，勿提交）
