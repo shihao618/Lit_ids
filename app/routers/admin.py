@@ -39,7 +39,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from ..admin_auth import COOKIE_NAME, DEFAULT_TTL, get_cookie_user, make_token, require_admin_user, require_login
-from ..deps import get_registry, get_xsfw
+from ..deps import get_admin_xsfw, get_registry
 from ..logbuf import log_buffer
 from ..restart import schedule_restart
 from ..schemas import (
@@ -242,7 +242,7 @@ def api_logs(limit: int = Query(200, ge=1, le=500)) -> dict[str, Any]:
 
 # ------------------------------------------------------------ 接口自测（使用当前用户自己的会话）
 @api.get("/test/roles", summary="自测：角色列表")
-def test_roles(system=Depends(get_xsfw)) -> dict[str, Any]:
+def test_roles(system=Depends(get_admin_xsfw)) -> dict[str, Any]:
     try:
         return {"ok": True, "data": system.roles(refresh=True)}
     except (SystemError, SessionError) as e:
@@ -250,7 +250,7 @@ def test_roles(system=Depends(get_xsfw)) -> dict[str, Any]:
 
 
 @api.get("/test/menu", summary="自测：当前角色菜单")
-def test_menu(system=Depends(get_xsfw)) -> dict[str, Any]:
+def test_menu(system=Depends(get_admin_xsfw)) -> dict[str, Any]:
     try:
         system.ensure_session()
         if system.current_role() is None:
@@ -267,7 +267,7 @@ def test_students(
     page_size: int = Query(10, alias="pageSize", ge=1, le=200),
     cqzt: str = Query("", alias="CQZT"),
     cqztlx: str = Query("", alias="CQZTLX"),
-    system=Depends(get_xsfw),
+    system=Depends(get_admin_xsfw),
 ) -> dict[str, Any]:
     try:
         data = system.get_ssgq_students(searchkey=searchkey, page_number=page_number,
@@ -278,7 +278,7 @@ def test_students(
 
 
 @api.get("/test/getCqztDic", summary="自测：查寝状态字典")
-def test_cqzt_dic(system=Depends(get_xsfw)) -> dict[str, Any]:
+def test_cqzt_dic(system=Depends(get_admin_xsfw)) -> dict[str, Any]:
     try:
         return {"ok": True, "data": system.get_cqzt_dic()}
     except (SystemError, SessionError) as e:
@@ -286,7 +286,7 @@ def test_cqzt_dic(system=Depends(get_xsfw)) -> dict[str, Any]:
 
 
 @api.get("/test/getCqztlxDic", summary="自测：查寝状态类型字典")
-def test_cqztlx_dic(cqzt: str = Query("", alias="CQZT"), system=Depends(get_xsfw)) -> dict[str, Any]:
+def test_cqztlx_dic(cqzt: str = Query("", alias="CQZT"), system=Depends(get_admin_xsfw)) -> dict[str, Any]:
     try:
         return {"ok": True, "data": system.get_cqztlx_dic(cqzt=cqzt)}
     except (SystemError, SessionError) as e:
@@ -294,7 +294,7 @@ def test_cqztlx_dic(cqzt: str = Query("", alias="CQZT"), system=Depends(get_xsfw
 
 
 @api.post("/test/call", summary="自测：通用调用")
-def test_call(body: GenericCallIn, system=Depends(get_xsfw)) -> dict[str, Any]:
+def test_call(body: GenericCallIn, system=Depends(get_admin_xsfw)) -> dict[str, Any]:
     try:
         system.set_role(None)
         return {"ok": True, "data": system.call(body.path, body.data)}
@@ -571,16 +571,16 @@ _DASHBOARD_TMPL = """<!doctype html>
           <b>最近错误</b><span id="s-err">-</span>
         </div>
         <div class="row">
-          <button onclick="startLogin(false)">登录（复用有效会话）</button>
-          <button class="gray" onclick="startLogin(true)">强制重新登录</button>
-          <button class="red" onclick="clearSession()">清除我的 CAS 会话</button>
+          <button type="button" onclick="startLogin(false)">登录（复用有效会话）</button>
+          <button type="button" class="gray" onclick="startLogin(true)">强制重新登录</button>
+          <button type="button" class="red" onclick="clearSession()">清除我的 CAS 会话</button>
         </div>
         <div id="overview-msg" class="msg"></div>
       </div>
       <div class="card" id="overview-admin" style="display:none">
         <h2>系统概况（管理员）</h2>
         <div class="kv"><b>用户数</b><span id="ov-users">-</span><b>已配置统一认证</b><span id="ov-users-cas">-</span></div>
-        <div class="row"><button class="gray" onclick="gotoPanel('users')">用户管理</button><button class="gray" onclick="gotoPanel('settings')">系统设置</button></div>
+        <div class="row"><button type="button" class="gray" onclick="gotoPanel('users')">用户管理</button><button type="button" class="gray" onclick="gotoPanel('settings')">系统设置</button></div>
       </div>
     </section>
 
@@ -588,7 +588,7 @@ _DASHBOARD_TMPL = """<!doctype html>
     <section class="panel" id="panel-account">
       <div class="card">
         <h2>我的 API Key</h2>
-        <div class="row"><input id="api-key" readonly><button class="gray" onclick="copyKey()">复制</button><button class="gray" onclick="regenKey()">重新生成</button></div>
+        <div class="row"><input id="api-key" readonly><button type="button" class="gray" onclick="copyKey()">复制</button><button type="button" class="gray" onclick="regenKey()">重新生成</button></div>
         <div id="key-msg" class="msg"></div>
         <div class="note">调用接口时放在请求头 X-API-Key；重新生成后旧的 Key 立即失效。</div>
       </div>
@@ -596,7 +596,7 @@ _DASHBOARD_TMPL = """<!doctype html>
         <h2>修改后台密码</h2>
         <label>当前密码</label><input id="old-pwd" type="password" placeholder="当前后台密码">
         <label>新密码（至少 6 位）</label><input id="new-pwd" type="password" placeholder="新后台密码">
-        <div class="row"><button class="green" onclick="changePassword()">修改密码</button></div>
+        <div class="row"><button type="button" class="green" onclick="changePassword()">修改密码</button></div>
         <div id="pwd-msg" class="msg"></div>
       </div>
     </section>
@@ -613,8 +613,8 @@ _DASHBOARD_TMPL = """<!doctype html>
         <label>设备指纹 browserFingerprint（可留空）</label>
         <input id="cas-fingerprint" placeholder="已受信任的设备指纹，留空则自动生成">
         <div class="row">
-          <button class="green" onclick="saveCas()">保存账号</button>
-          <button class="red" onclick="clearSession()">清除我的 CAS 会话</button>
+          <button type="button" class="green" onclick="saveCas()">保存账号</button>
+          <button type="button" class="red" onclick="clearSession()">清除我的 CAS 会话</button>
         </div>
         <div id="cas-msg" class="msg"></div>
         <div class="note" id="cas-note">-</div>
@@ -627,8 +627,8 @@ _DASHBOARD_TMPL = """<!doctype html>
       <div class="card">
         <h2>登录调试（账号密码 / 企业微信验证码）</h2>
         <div class="row">
-          <button onclick="startLogin(false)">登录（复用有效会话）</button>
-          <button class="gray" onclick="startLogin(true)">强制重新登录</button>
+          <button type="button" onclick="startLogin(false)">登录（复用有效会话）</button>
+          <button type="button" class="gray" onclick="startLogin(true)">强制重新登录</button>
           <span class="note" id="login-stage"></span>
         </div>
         <div id="login-msg" class="msg"></div>
@@ -636,8 +636,8 @@ _DASHBOARD_TMPL = """<!doctype html>
           <b>需要企业微信验证码</b>（请到该账号绑定的企业微信查看「统一身份认证」验证码）
           <div class="row" style="margin-top:8px">
             <input id="mfa-code" placeholder="请输入验证码" style="max-width:220px">
-            <button class="green" onclick="submitMfa()">提交验证码</button>
-            <button class="gray" onclick="resendMfa()">重新发送</button>
+            <button type="button" class="green" onclick="submitMfa()">提交验证码</button>
+            <button type="button" class="gray" onclick="resendMfa()">重新发送</button>
           </div>
         </div>
         <div class="note" id="captcha-debug"></div>
@@ -649,10 +649,10 @@ _DASHBOARD_TMPL = """<!doctype html>
       <div class="card">
         <h2>接口自测（使用我自己的会话）</h2>
         <div class="row">
-          <button class="gray" onclick="testRoles()">角色列表</button>
-          <button class="gray" onclick="testMenu()">菜单</button>
-          <button class="gray" onclick="testCqztDic()">CQZT 字典</button>
-          <button class="gray" onclick="testCqztlxDic()">CQZTLX 类型</button>
+          <button type="button" class="gray" onclick="testRoles()">角色列表</button>
+          <button type="button" class="gray" onclick="testMenu()">菜单</button>
+          <button type="button" class="gray" onclick="testCqztDic()">CQZT 字典</button>
+          <button type="button" class="gray" onclick="testCqztlxDic()">CQZTLX 类型</button>
         </div>
         <div class="row" style="margin-top:10px">
           <span>学生归寝（官方参数）：</span>
@@ -661,12 +661,12 @@ _DASHBOARD_TMPL = """<!doctype html>
           <input id="test-page-size" value="10" placeholder="pageSize" style="width:95px">
           <input id="test-cqzt" value="" placeholder="CQZT(1/2/3, 空=全部)" style="width:185px">
           <input id="test-cqztlx" value="" placeholder="CQZTLX(可空)" style="width:130px">
-          <button onclick="testStudents()">查询</button>
+          <button type="button" onclick="testStudents()">查询</button>
         </div>
         <div class="row" style="margin-top:10px">
           <span>通用调用：</span>
           <input id="test-path" style="flex:1;min-width:280px" value="/xsfw/sys/swmzncqapp/modules/sjkb/getSsgqStudent.do">
-          <button onclick="testCall()">调用</button>
+          <button type="button" onclick="testCall()">调用</button>
         </div>
         <textarea id="test-data">{"SEARCHKEY":"","pageNumber":1,"pageSize":5,"CQZT":""}</textarea>
         <pre id="test-out">（接口自测结果）</pre>
@@ -683,7 +683,7 @@ _DASHBOARD_TMPL = """<!doctype html>
           <select id="new-role" style="width:110px"><option value="user">普通用户</option><option value="admin">管理员</option></select>
           <input id="new-cas-username" placeholder="统一认证账号(可空)" style="width:170px">
           <input id="new-cas-password" type="password" placeholder="统一认证密码(可空)" style="width:170px">
-          <button class="green" onclick="createUser()">创建用户</button>
+          <button type="button" class="green" onclick="createUser()">创建用户</button>
         </div>
         <div id="users-msg" class="msg"></div>
         <table id="users-table">
@@ -709,8 +709,8 @@ _DASHBOARD_TMPL = """<!doctype html>
         <label>启动时自动登录<span class="badge-restart">需重启</span></label>
         <select id="set-auto-login"><option value="true">开启</option><option value="false">关闭</option></select>
         <div class="row">
-          <button class="green" onclick="saveSystemSettings()">保存设置</button>
-          <button class="gray" onclick="loadSystemSettings()">重新读取</button>
+          <button type="button" class="green" onclick="saveSystemSettings()">保存设置</button>
+          <button type="button" class="gray" onclick="loadSystemSettings()">重新读取</button>
         </div>
         <div id="sys-msg" class="msg"></div>
         <div class="note" id="sys-note">-</div>
@@ -718,7 +718,7 @@ _DASHBOARD_TMPL = """<!doctype html>
       <div class="card">
         <h2>重启容器</h2>
         <p class="note" style="margin-top:0">「启动时自动登录」等启动项需要重启容器后生效。点击后容器会在约 5~15 秒内自动重启并恢复，页面稍后会自动刷新。</p>
-        <button class="red" onclick="restartContainer()">🔄 重启容器</button>
+        <button type="button" class="red" onclick="restartContainer()">🔄 重启容器</button>
         <div id="restart-msg" class="msg"></div>
       </div>
     </section>
@@ -728,7 +728,7 @@ _DASHBOARD_TMPL = """<!doctype html>
       <div class="card">
         <h2>运行日志</h2>
         <div class="row">
-          <button class="gray" onclick="loadLogs()">刷新日志</button>
+          <button type="button" class="gray" onclick="loadLogs()">刷新日志</button>
           <label style="display:inline;margin:0"><input type="checkbox" id="auto-log" checked style="width:auto"> 自动刷新</label>
         </div>
         <pre id="logs">（日志）</pre>
@@ -817,9 +817,9 @@ function renderUsers(users){
   let h='';
   for(const u of users){
     h+='<tr><td>'+esc(u.username)+(u.role==='admin'?' <span class="ok-tag">管理员</span>':'')+'</td><td>'+esc(u.role)+'</td><td>'+fmt(u.cas_username)+'</td><td><code>'+esc(u.api_key||'')+'</code></td><td>'+fmt(u.created_at)+
-       '</td><td><button class="gray" data-id="'+esc(u.id)+'" onclick="resetUserPwd(this.dataset.id)">重置密码</button>'+
-       '<button class="gray" data-id="'+esc(u.id)+'" onclick="resetUserKey(this.dataset.id)">重置Key</button>'+
-       '<button class="red" data-id="'+esc(u.id)+'" onclick="deleteUser(this.dataset.id)">删除</button></td></tr>';
+       '</td><td><button type="button" class="gray" data-id="'+esc(u.id)+'" onclick="resetUserPwd(this.dataset.id)">重置密码</button>'+
+       '<button type="button" class="gray" data-id="'+esc(u.id)+'" onclick="resetUserKey(this.dataset.id)">重置Key</button>'+
+       '<button type="button" class="red" data-id="'+esc(u.id)+'" onclick="deleteUser(this.dataset.id)">删除</button></td></tr>';
   }
   $('users-tbody').innerHTML=h||'<tr><td colspan="6">暂无用户</td></tr>';
 }

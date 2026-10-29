@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from app.deps import get_xsfw  # noqa: E402
+from app.deps import get_admin_xsfw, get_xsfw  # noqa: E402
 from app.main import app  # noqa: E402
 
 ADMIN_LOGIN = {"username": "admin", "password": "test-admin"}
@@ -48,7 +48,9 @@ class FakeXsfw:
 
 
 def _client() -> TestClient:
-    app.dependency_overrides[get_xsfw] = lambda: FakeXsfw()
+    fake = FakeXsfw()
+    app.dependency_overrides[get_xsfw] = lambda: fake
+    app.dependency_overrides[get_admin_xsfw] = lambda: fake
     return TestClient(app)
 
 
@@ -343,3 +345,12 @@ def test_cas_account_validation_and_password_kept():
         r = c.post("/admin/api/settings",
                    json={"cas_username": "", "cas_password": "x"}).json()
         assert r["ok"] is False and "不能为空" in r["error"]
+
+
+def test_admin_selftest_uses_cookie_auth():
+    """后台接口自测必须走 cookie 登录用户自己的会话，不能要求 X-API-Key（旧版 401 会导致前端跳概览）."""
+    with TestClient(app) as c:
+        _login(c)
+        r = c.get("/admin/api/test/roles")
+        assert r.status_code == 200          # 旧实现返回 401
+        assert "ok" in r.json()

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import Header, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Request
 
+from .admin_auth import require_login
 from .registry import SessionRegistry
 from .session import SessionManager
 from .systems import XsfwSystem
@@ -44,6 +45,11 @@ def get_session(request: Request) -> SessionManager:
     """当前 API Key 对应用户的 CAS 会话."""
     user = get_api_user(request)
     return request.app.state.registry.session(user["id"])
+
+
+def get_admin_xsfw(request: Request, user: dict = Depends(require_login)) -> XsfwSystem:
+    """后台「接口自测」：使用当前登录管理员自己的会话（cookie 鉴权，不走 X-API-Key）。"""
+    return request.app.state.registry.system(user["id"])
 
 
 def get_xsfw(request: Request) -> XsfwSystem:
