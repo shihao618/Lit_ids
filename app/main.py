@@ -26,7 +26,7 @@ from .registry import SessionRegistry
 from .session import SessionError
 from .settings_store import RuntimeSettings, apply_log_level
 from .systems import SystemError
-from .users import UserStore
+from .users import StoreError, UserStore
 
 log = logging.getLogger("lit_api")
 
@@ -157,6 +157,13 @@ def create_app() -> FastAPI:
             "hint": "请到后台界面 /admin 的「登录调试」输入企业微信验证码；"
                     "或调用 POST /api/v1/auth/login 重新登录并带 mfa_code",
         })
+
+    @app.exception_handler(StoreError)
+    async def _store_error(_req: Request, exc: StoreError) -> JSONResponse:
+        log.error("用户数据存储错误: %s", exc)
+        return UTF8JSONResponse(status_code=500, content={
+            "ok": False, "code": "STORE_ERROR", "error": str(exc),
+            "message": "数据保存失败：%s" % exc})
 
     @app.exception_handler(SystemError)
     async def _system_error(_req: Request, exc: SystemError) -> JSONResponse:

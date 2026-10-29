@@ -302,3 +302,25 @@ def test_bootstrap_generates_random_admin_password(tmp_path):
     assert len(password) >= 12
     assert store.check_password("admin", password) is not None
     assert store.check_password("admin", "wrong-password") is None
+
+
+def test_store_save_failure_returns_json_error(monkeypatch):
+    """数据目录不可写时，保存统一认证账号应返回明确错误而不是假装成功."""
+    from app.users import StoreError, UserStore
+
+    def boom(self):
+        raise StoreError("data 目录不可写（测试模拟）")
+
+    with TestClient(app) as c:
+        _login(c)
+        monkeypatch.setattr(UserStore, "_save", boom)
+        r = c.post("/admin/api/settings", json={"cas_username": "B2607xxxx"})
+        assert r.status_code == 500
+        body = r.json()
+        assert body["ok"] is False
+        assert "data 目录不可写" in body["message"]
+
+
+def test_readyz_reports_data_writable():
+    with TestClient(app) as c:
+        assert c.get("/readyz").json()["data_writable"] is True

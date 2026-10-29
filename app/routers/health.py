@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Any
 
@@ -23,9 +24,11 @@ def readyz(request: Request) -> dict[str, Any]:
     store = request.app.state.store
     registry = request.app.state.registry
     users = store.list()
+    users_file = request.app.state.settings.users_file
     return {
         "status": "ok",
         "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "data_writable": os.access(os.path.dirname(os.path.abspath(users_file)) or ".", os.W_OK),
         "users": len(users),
         "users_with_cas": sum(1 for u in users if u.get("cas_username") and u.get("cas_password")),
         "cached_sessions": len(registry.cached_users()),

@@ -33,6 +33,10 @@ import uuid
 
 log = logging.getLogger(__name__)
 
+
+class StoreError(RuntimeError):
+    """用户数据保存/读取失败（通常是数据目录不可写或文件损坏等）."""
+
 PBKDF2_ITER = 120_000
 ROLES = ("admin", "user")
 
@@ -103,9 +107,15 @@ class UserStore:
         try:
             with open(self.path, encoding="utf-8") as f:
                 data = json.load(f)
-        except (OSError, ValueError):
+        except FileNotFoundError:
             log.info("用户文件不存在，将在引导时创建: %s", self.path)
             return
+        except OSError as e:
+            raise StoreError(
+                "无法读取用户数据文件 %s: %s（请检查数据目录权限）" % (self.path, e)) from e
+        except ValueError as e:
+            raise StoreError(
+                "用户数据文件损坏，请恢复备份或删除后重新引导: %s" % self.path) from e
         users = data.get("users") if isinstance(data, dict) else None
         if isinstance(users, dict):
             self._users = users
@@ -125,7 +135,9 @@ class UserStore:
                 pass
             os.replace(tmp, self.path)
         except OSError as e:  # noqa: BLE001
-            log.warning("用户文件保存失败: %s", e)
+            log.error("用户文件保存失败: %s", e)
+            raise StoreError(
+                "用户数据保存失败: %s（数据目录可能不可写，请检查挂载目录权限）" % e) from e
 
     # ------------------------------------------------------------------ 查询
     def get(self, user_id: str) -> dict | None:

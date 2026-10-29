@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import html as html_lib
 import logging
+import os
 import time
 import urllib.parse
 from typing import Any
@@ -64,11 +65,12 @@ def _app_name(request: Request) -> str:
 
 @router.get("/admin", response_class=HTMLResponse, summary="后台调试界面")
 def admin_home(request: Request) -> HTMLResponse:
+    no_store = {"Cache-Control": "no-store, max-age=0"}
     if not get_cookie_user(request):
         html = LOGIN_HTML.replace("__APP_NAME__", html_lib.escape(_app_name(request)))
-        return HTMLResponse(html)
+        return HTMLResponse(html, headers=no_store)
     html = DASHBOARD_HTML.replace("__APP_NAME__", html_lib.escape(_app_name(request)))
-    return HTMLResponse(html)
+    return HTMLResponse(html, headers=no_store)
 
 
 @router.post("/admin/login", summary="后台登录（用户名+密码）")
@@ -130,6 +132,10 @@ def api_state(request: Request, user: dict = Depends(require_login)) -> dict[str
             "data_dir": request.app.state.settings.data_dir,
             "users_file": request.app.state.settings.users_file,
             "session_dir": request.app.state.settings.session_dir,
+            # 数据目录是否可写（fnOS 挂载权限不对时保存会失败，界面会提示）
+            "data_writable": os.access(
+                os.path.dirname(os.path.abspath(request.app.state.settings.users_file)) or ".",
+                os.W_OK),
         },
     }
 
@@ -146,7 +152,7 @@ def api_settings(request: Request, body: CasSettingsIn,
     clear = bool(body.cas_username is not None or cas_password)
     registry.drop(user["id"], clear_cookies=clear)
     session = registry.session(user["id"])
-    msg = "统一认证账号已保存" + ("，请重新登录" if clear else "")
+    msg = "统一认证账号已保存" + ("（旧会话已清除，请到「🧪 登录调试」重新登录）" if clear else "")
     log.info("用户 %s 更新统一认证账号配置", user.get("username"))
     return {"ok": True, "message": msg, "session": session.status()}
 
@@ -592,6 +598,7 @@ _DASHBOARD_TMPL = """<!doctype html>
     <section class="panel" id="panel-cas">
       <div class="card">
         <h2>我的统一认证账号</h2>
+        <div id="data-warn" class="msg err" style="display:none"></div>
         <label>账号（学号/工号）</label>
         <input id="cas-username" placeholder="例如 B2607xxxx">
         <label>密码（留空 = 不修改）</label>
@@ -769,6 +776,13 @@ async function refresh(){
   $('cas-note').textContent='登录状态：'+(s.logged_in?'已登录':'未登录')+'；最近登录：'+fmt(s.login_time)+
     (s.mfa_used?'；已通过二次验证':'')+(s.last_error?('；最近错误：'+s.last_error):'')+
     '（用户数据：'+((st.env&&st.env.users_file)||'data/users.json')+'）';
+  const env=st.env||{};
+  if(env.data_writable===false){
+    $('data-warn').textContent='⚠ 数据目录不可写（'+fmt(env.data_dir)+'），保存会失败。请在 NAS 上检查数据目录权限（如 chown -R 1000:1000 ./data）后重启容器。';
+    $('data-warn').style.display='block';
+  } else {
+    $('data-warn').style.display='none';
+  }
   $('mfa-area').style.display=s.pending_mfa?'block':'none';
   const dbg=s.debug||{}; $('login-stage').textContent=dbg.stage?('最近阶段: '+dbg.stage+(dbg.at?' @ '+dbg.at:'')):'';
   renderCaptcha(dbg.captcha||[]);
