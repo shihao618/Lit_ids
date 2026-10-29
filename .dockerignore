@@ -1,0 +1,19 @@
+# 构建上下文裁剪（Docker 只需要框架源码 + 统一认证核心）
+data/
+docs/
+tests/
+.env
+.env.*
+README.md
+requirements-dev.txt
+.git/
+.gitignore
+.dockerignore
+docker-compose.yml
+Dockerfile
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.pytest_cache/
+.mypy_cache/

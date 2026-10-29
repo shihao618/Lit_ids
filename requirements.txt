@@ -1,0 +1,6 @@
+# ---- 运行时依赖（固定精确版本，保证 Docker 构建可复现） ----
+Pillow==13.0.0
+numpy==2.5.4
+fastapi==0.162.0
+uvicorn==0.54.0
+python-dotenv==1.2.4

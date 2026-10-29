@@ -1,0 +1,4 @@
+# 开发/测试依赖（构建镜像不需要）
+-r requirements.txt
+pytest>=8.0
+httpx>=0.27
