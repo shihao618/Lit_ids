@@ -106,6 +106,9 @@ async def lifespan(app: FastAPI):
     if bootstrap_user:
         log.info("首次启动：已创建管理员用户 %s（统一认证账号请在后台配置）",
                  bootstrap_user.get("username"))
+        if not settings.admin_password:
+            log.info("随机管理员密码已写入: %s/admin-password.txt（登录后请在后台修改）",
+                     settings.data_dir)
     registry = SessionRegistry(settings, store)
     app.state.store = store
     app.state.registry = registry

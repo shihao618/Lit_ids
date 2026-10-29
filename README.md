@@ -60,6 +60,7 @@ docker compose up -d --build
 
 # 3) 打开后台
 #    http://127.0.0.1:10381/admin   （默认 admin / .env 里的 ADMIN_PASSWORD）
+#    若 .env 未设置 ADMIN_PASSWORD：首次启动会随机生成，见 data/admin-password.txt
 ```
 
 后台菜单使用顺序：
@@ -118,22 +119,32 @@ fnOS 上不需要源码、不需要构建，直接用 [docker-compose.fnos.yml](
 3. 项目 `.env`（可选，与 compose 同目录）：
 
    ```env
-   ADMIN_PASSWORD=改成你的后台初始密码
-   API_KEY=                      # 留空则自动生成，可在后台「我的账号」查看
-   DATA_PATH=./data              # 或绝对路径，如 /vol1/1000/docker/lit-api/data
+   # ADMIN_PASSWORD=            # 不填则首次启动随机生成，保存到 data/admin-password.txt
+   # API_KEY=                   # 留空则自动生成，可在后台「我的账号」查看
+   # DATA_PATH=./data           # 或绝对路径，如 /vol1/1000/docker/lit-api/data
    # PUID=1000
    # PGID=1000
    # API_PORT=10381
    # API_BIND=0.0.0.0
    ```
 
-4. 启动后访问 `http://<NAS-IP>:10381/admin`，用 `admin / ADMIN_PASSWORD` 登录，再去「统一认证」配置自己的账号。
+4. 启动后访问 `http://<NAS-IP>:10381/admin`，用 `admin` + 初始密码登录，再去「统一认证」配置自己的账号。
+   初始密码：设置了 `ADMIN_PASSWORD` 就用它；**没设置则首次启动随机生成**，查看方式：
+
+   ```bash
+   cat data/admin-password.txt
+   # 或
+   docker exec lit-api-gateway cat /data/admin-password.txt
+   ```
+
+   登录后建议到「👤 我的账号 → 修改后台密码」改成自己的密码，并删除 `admin-password.txt`。
 
 镜像由 GitHub Actions 自动构建（`linux/amd64` + `linux/arm64`）并推送到
 `ghcr.io/shihao618/lit-api-gateway:latest`；首次使用需到 GitHub → Packages 把该镜像包设为 **Public**
 （或在 NAS 上 `docker login ghcr.io` 后使用私有镜像）。
 
-* 数据都在 `data/`：`users.json`、`sessions/`、`settings.json`、`.gateway_secret`；
+* 数据都在 `data/`：`users.json`、`sessions/`、`settings.json`、`.gateway_secret`，
+  以及未设置 `ADMIN_PASSWORD` 时生成的 `admin-password.txt`；
   备份/迁移直接打包该目录（`.gateway_secret` 必须一起迁移，否则后台登录态失效）。
 * 更新镜像：
   ```bash
@@ -148,7 +159,7 @@ fnOS 上不需要源码、不需要构建，直接用 [docker-compose.fnos.yml](
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `ADMIN_USERNAME` | `admin` | **仅首次引导**：第一个管理员后台登录名 |
-| `ADMIN_PASSWORD` | 空 | **仅首次引导**：管理员后台初始密码（不填会随机生成并打印日志） |
+| `ADMIN_PASSWORD` | 空 | **仅首次引导**：管理员后台初始密码；**不填则随机生成并保存到 `<DATA_DIR>/admin-password.txt`**（权限 600） |
 | `API_KEY` | 空 | **仅首次引导**：管理员初始 API Key（不填自动生成，可在后台查看/重置） |
 | `DATA_DIR` | `data` | 数据目录（容器内固定 `/data`） |
 | `ADMIN_SECRET` | 空 | 可选：后台 cookie 签名密钥（不填自动生成到 `<DATA_DIR>/.gateway_secret`） |
@@ -164,7 +175,8 @@ fnOS 上不需要源码、不需要构建，直接用 [docker-compose.fnos.yml](
 | 启动时自动登录 `auto_login_on_start` | 是否为已配置统一认证账号的用户在启动时自动登录 | **需重启容器**（后台点「🔄 重启容器」） |
 
 > 数据目录里还会看到：`users.json`（用户/账号/API Key）、`sessions/<user-id>.json`（各用户 CAS 会话）、
-> `settings.json`（系统设置）、`.gateway_secret`（后台 cookie 签名密钥）。
+> `settings.json`（系统设置）、`.gateway_secret`（后台 cookie 签名密钥），以及随机生成的
+> `admin-password.txt`（未配置 `ADMIN_PASSWORD` 时，登录后建议修改密码并删除该文件）。
 
 ## 4. API 文档
 

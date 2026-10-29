@@ -247,25 +247,56 @@ class UserStore:
             return user["api_key"]
 
     # ------------------------------------------------------------------ 引导
+    def _write_admin_password_file(self, username: str, password: str) -> str | None:
+        """首次随机生成管理员密码时，写入 <DATA_DIR>/admin-password.txt（权限 600）."""
+        path = os.path.join(os.path.dirname(os.path.abspath(self.path)),
+                            "admin-password.txt")
+        content = (
+            "# LIT API Gateway 后台管理员初始密码（首次启动自动生成，请登录后尽快修改）\n"
+            "# 生成时间: %s\n"
+            "username=%s\n"
+            "password=%s\n"
+        ) % (time.strftime("%Y-%m-%d %H:%M:%S"), username, password)
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(content)
+            try:
+                os.chmod(tmp, 0o600)
+            except OSError:
+                pass
+            os.replace(tmp, path)
+            log.warning("未配置 ADMIN_PASSWORD，已随机生成管理员密码并保存到: %s", path)
+            return path
+        except OSError as e:  # noqa: BLE001
+            log.warning("随机管理员密码文件写入失败: %s", e)
+            return None
+
     def bootstrap(self, *, admin_username: str, admin_password: str,
                   api_key: str, cas_username: str, cas_password: str,
                   cas_fingerprint: str | None) -> dict | None:
-        """用户表为空时，用环境变量创建第一个管理员用户."""
+        """用户表为空时创建第一个管理员用户.
+
+        密码优先级：环境变量 ADMIN_PASSWORD > 随机生成（写入 data/admin-password.txt）。
+        """
         with self._lock:
             if self._users:
                 return None
             username = (admin_username or "admin").strip() or "admin"
             password = admin_password or ""
+            generated = False
             if not password:
-                password = "lit-" + secrets.token_urlsafe(9)
-                log.warning("未配置 ADMIN_PASSWORD，已为管理员 %s 生成初始密码: %s",
-                            username, password)
+                password = "lit-" + secrets.token_urlsafe(12)
+                generated = True
             user = self.create(
                 username=username, password=password, role="admin",
                 cas_username=cas_username or "", cas_password=cas_password or "",
                 cas_fingerprint=cas_fingerprint or "",
                 api_key=api_key or None,
             )
+            if generated:
+                self._write_admin_password_file(username, password)
             log.info("已创建引导管理员用户: %s（API Key: %s%s）",
                      username, user["api_key"][:10], "..." if len(user["api_key"]) > 10 else "")
             return user

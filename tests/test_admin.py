@@ -283,3 +283,22 @@ def test_admin_mfa_flow_plumbing(monkeypatch):
         assert r["status"] == "need_mfa" and r["ok"] is False
         r = c.post("/admin/api/mfa", json={"code": "123456"}).json()
         assert r["ok"] is True and r["status"] == "ok"
+
+
+def test_bootstrap_generates_random_admin_password(tmp_path):
+    """未提供 ADMIN_PASSWORD 时：随机生成密码并写入 admin-password.txt."""
+    from app.users import UserStore
+
+    store = UserStore(str(tmp_path / "users.json"))
+    user = store.bootstrap(admin_username="admin", admin_password="", api_key="",
+                           cas_username="", cas_password="", cas_fingerprint="")
+    assert user is not None and user["username"] == "admin"
+    pw_file = tmp_path / "admin-password.txt"
+    assert pw_file.exists()
+    text = pw_file.read_text(encoding="utf-8")
+    assert "username=admin" in text
+    password = next(line.split("=", 1)[1].strip()
+                    for line in text.splitlines() if line.startswith("password="))
+    assert len(password) >= 12
+    assert store.check_password("admin", password) is not None
+    assert store.check_password("admin", "wrong-password") is None

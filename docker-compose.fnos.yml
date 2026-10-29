@@ -25,7 +25,7 @@
 #   API_PORT=10381
 #   API_BIND=0.0.0.0
 #   ADMIN_USERNAME=admin
-#   ADMIN_PASSWORD=请改成你的后台初始密码      # 必填，至少 6 位
+#   ADMIN_PASSWORD=                          # 可选：不设则首次启动随机生成，保存到 data/admin-password.txt
 #   API_KEY=                                 # 可选：管理员初始 API Key（留空自动生成，可在后台查看）
 #   ADMIN_SECRET=                            # 可选：后台 cookie 签名密钥（不设会自动生成到 data/.gateway_secret）
 #   TZ=Asia/Shanghai
@@ -34,7 +34,12 @@
 #   - users.json           用户 / 统一认证账号 / API Key
 #   - settings.json        后台「系统设置」
 #   - sessions/<uid>.json  各用户 CAS 会话（TGC）
-#   - .gateway_secret      后台 cookie 签名密钥
+#   - .gateway_secret      后台 cookie 签名密钥（自动生成）
+#   - admin-password.txt   未设置 ADMIN_PASSWORD 时随机生成的后台初始密码
+#
+# 查看随机密码（未设置 ADMIN_PASSWORD 时）：
+#   docker exec lit-api-gateway cat /data/admin-password.txt
+#   或在 fnOS 文件管理器打开 data/admin-password.txt
 #
 # 更新镜像：
 #   docker compose -f docker-compose.fnos.yml pull
@@ -56,7 +61,8 @@ services:
       HOME: /tmp
       TMPDIR: /tmp
       ADMIN_USERNAME: "${ADMIN_USERNAME:-admin}"
-      ADMIN_PASSWORD: "${ADMIN_PASSWORD:?请在项目 .env 中设置 ADMIN_PASSWORD（后台初始密码，至少 6 位）}"
+      # 留空则首次启动随机生成，保存到 data/admin-password.txt
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
       # 留空则首启动自动生成，可在后台「我的账号 / API Key」查看
       API_KEY: "${API_KEY:-}"
       # 留空则自动生成到 data/.gateway_secret
