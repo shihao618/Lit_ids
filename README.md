@@ -59,7 +59,7 @@ cp .env.example .env
 docker compose up -d --build
 
 # 3) 打开后台
-#    http://127.0.0.1:8000/admin   （默认 admin / .env 里的 ADMIN_PASSWORD）
+#    http://127.0.0.1:10381/admin   （默认 admin / .env 里的 ADMIN_PASSWORD）
 ```
 
 后台菜单使用顺序：
@@ -75,17 +75,17 @@ docker compose up -d --build
 ```bash
 # 调用接口（每个用户用自己的 Key）
 curl -H "X-API-Key: <你的 API Key>" \
-     "http://127.0.0.1:8000/api/v1/xsfw/sjkb/ssgq/students?CQZT=2&pageSize=10"
+     "http://127.0.0.1:10381/api/v1/xsfw/sjkb/ssgq/students?CQZT=2&pageSize=10"
 ```
 
 入口一览：
 
-* **后台（菜单式，多用户）**：<http://127.0.0.1:8000/admin>
-* **前台接口文档**：<http://127.0.0.1:8000/>（别名 `/api-docs`）
-* **Swagger**：<http://127.0.0.1:8000/docs>
+* **后台（菜单式，多用户）**：<http://127.0.0.1:10381/admin>
+* **前台接口文档**：<http://127.0.0.1:10381/>（别名 `/api-docs`）
+* **Swagger**：<http://127.0.0.1:10381/docs>
 * 健康检查：`/healthz`、`/readyz`
 
-> 默认只监听宿主机 `127.0.0.1:8000`；需要局域网访问时设置 `API_BIND=0.0.0.0 API_PORT=8000` 后重新 `docker compose up -d`。
+> 默认只监听宿主机 `127.0.0.1:10381`；需要局域网访问时设置 `API_BIND=0.0.0.0 API_PORT=10381` 后重新 `docker compose up -d`。
 > 国内网络构建慢可加 `--build-arg PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple`
 > （或设置同名环境变量；`docker compose build` 会读取）。
 
@@ -98,7 +98,7 @@ curl -H "X-API-Key: <你的 API Key>" \
 | 依赖可复现 | `requirements.txt` 固定精确版本（`==`），利用 Docker 层缓存 |
 | 最小上下文 | `.dockerignore` 排除 `data/ docs/ tests/ .env* README` 等，镜像内只有 `app/`、`lit_login.py`、`requirements.txt` |
 | 健康检查 | 镜像内置 `HEALTHCHECK` 访问 `/healthz`（compose 继承，`docker ps` 显示 healthy） |
-| 启动/信号 | exec 形式 `CMD ["uvicorn", ...]`、`STOPSIGNAL SIGTERM`、`EXPOSE 8000` |
+| 启动/信号 | exec 形式 `CMD ["uvicorn", ...]`、`STOPSIGNAL SIGTERM`、`EXPOSE 10381` |
 | 元数据 | OCI `LABEL`（title/description/version/licenses） |
 | 持久化 | `VOLUME ["/data"]` + compose bind mount `./data:/data`（用户/会话/设置都在这里） |
 | 运行加固 | `read_only` 根文件系统 + `/tmp` tmpfs、`cap_drop: ALL`、`no-new-privileges`、`init: true`、`pids_limit`、日志轮转、`restart: unless-stopped`、`stop_grace_period` |
@@ -158,11 +158,11 @@ curl -H "X-API-Key: <你的 API Key>" \
 | `CQZTLX` | query | 空 | 查寝状态类型：`11`=未联系上、`12`=已报备、`21`=正常归寝、`22`=晚归 |
 
 ```bash
-curl -H "X-API-Key: <你的 Key>" "http://127.0.0.1:8000/api/v1/xsfw/sjkb/ssgq/students?CQZT=2&pageSize=200"  # 已归寝
-curl -H "X-API-Key: <你的 Key>" "http://127.0.0.1:8000/api/v1/xsfw/sjkb/ssgq/students?CQZT=3&pageSize=200"  # 离校请假
-curl -H "X-API-Key: <你的 Key>" "http://127.0.0.1:8000/api/v1/xsfw/sjkb/ssgq/students?pageSize=200"          # 全部
-curl -H "X-API-Key: <你的 Key>" "http://127.0.0.1:8000/api/v1/xsfw/sjkb/getCqztDic"                        # 状态字典
-curl -H "X-API-Key: <你的 Key>" "http://127.0.0.1:8000/api/v1/xsfw/sjkb/getCqztlxDic?CQZT=2"               # 类型字典
+curl -H "X-API-Key: <你的 Key>" "http://127.0.0.1:10381/api/v1/xsfw/sjkb/ssgq/students?CQZT=2&pageSize=200"  # 已归寝
+curl -H "X-API-Key: <你的 Key>" "http://127.0.0.1:10381/api/v1/xsfw/sjkb/ssgq/students?CQZT=3&pageSize=200"  # 离校请假
+curl -H "X-API-Key: <你的 Key>" "http://127.0.0.1:10381/api/v1/xsfw/sjkb/ssgq/students?pageSize=200"          # 全部
+curl -H "X-API-Key: <你的 Key>" "http://127.0.0.1:10381/api/v1/xsfw/sjkb/getCqztDic"                        # 状态字典
+curl -H "X-API-Key: <你的 Key>" "http://127.0.0.1:10381/api/v1/xsfw/sjkb/getCqztlxDic?CQZT=2"               # 类型字典
 ```
 
 返回官方结构：`{"code":"0","msg":"成功","data":[{...}]}`。
@@ -177,7 +177,7 @@ curl -H "X-API-Key: <你的 Key>" "http://127.0.0.1:8000/api/v1/xsfw/sjkb/getCqz
 
 ## 5. 前台接口文档页面（`/`）
 
-浏览器打开 **http://127.0.0.1:8000/**（别名 `/api-docs`），无需登录后台。
+浏览器打开 **http://127.0.0.1:10381/**（别名 `/api-docs`），无需登录后台。
 
 ![前台接口文档](docs/api-docs.png)
 
@@ -253,7 +253,7 @@ app/
     health.py           健康检查
 tests/                  离线测试（26 个）：认证核心 / 接口 / 多用户后台 / 系统设置
 Dockerfile              python:3.12-slim、非 root、健康检查
-docker-compose.yml      数据卷 ./data:/data、env_file .env、端口 8000、restart 策略
+docker-compose.yml      数据卷 ./data:/data、env_file .env、端口 10381、restart 策略
 .env.example            初始化配置模板
 docs/                   界面截图
 data/                   用户表、各用户 CAS 会话、系统设置（运行时生成，勿提交）
@@ -264,7 +264,7 @@ data/                   用户表、各用户 CAS 会话、系统设置（运行
 ```bash
 pip install -r requirements-dev.txt
 python -m pytest tests -q          # 26 passed（离线，不访问校园网）
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 10381 --reload
 ```
 
 测试覆盖：CAS 核心工具、API Key 鉴权、官方参数接口、字典接口、多用户登录/创建/删除、

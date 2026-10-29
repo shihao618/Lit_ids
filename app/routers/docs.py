@@ -38,7 +38,7 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
             "login_time": "2026-10-29 18:54:17",
             "final_url": "http://ids.lit.edu.cn/authserver/personal/",
             "fingerprint_saved": True, "cookie_names": ["JSESSIONID", "TGC"],
-            "tgc_masked": "eyJhbGciOiJIUzUxMi...uZtEOWMg",
+            "tgc_masked": "eyJhbGciOiJIUzUxMi...（已脱敏）",
             "pending_mfa": False, "mfa_used": False, "last_error": None,
         },
     },

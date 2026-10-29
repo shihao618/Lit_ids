@@ -1,5 +1,5 @@
 # LIT API Gateway —— Docker Compose（安全加固版）
-# 默认只监听宿主机 127.0.0.1:8000；需要局域网访问可设置 API_BIND=0.0.0.0
+# 默认只监听宿主机 127.0.0.1:10381；需要局域网访问可设置 API_BIND=0.0.0.0
 services:
   lit-api:
     build:
@@ -16,7 +16,7 @@ services:
     environment:
       DATA_DIR: /data
     ports:
-      - "${API_BIND:-127.0.0.1}:${API_PORT:-8000}:8000"
+      - "${API_BIND:-127.0.0.1}:${API_PORT:-10381}:10381"
     volumes:
       # 多用户数据：users.json（用户/账号/API Key）+ sessions/（各用户 CAS 会话）+ settings.json
       - ./data:/data

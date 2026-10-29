@@ -1,7 +1,7 @@
 """FastAPI 应用入口.
 
 运行:
-    uvicorn app.main:app --host 0.0.0.0 --port 8000
+    uvicorn app.main:app --host 0.0.0.0 --port 10381
 或使用 Docker:
     docker compose up -d
 
