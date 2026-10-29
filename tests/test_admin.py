@@ -324,3 +324,22 @@ def test_store_save_failure_returns_json_error(monkeypatch):
 def test_readyz_reports_data_writable():
     with TestClient(app) as c:
         assert c.get("/readyz").json()["data_writable"] is True
+
+
+def test_cas_account_validation_and_password_kept():
+    """统一认证：账号不能为空；只改账号（密码留空）时保留原密码."""
+    with TestClient(app) as c:
+        _login(c)
+        r = c.post("/admin/api/settings",
+                   json={"cas_username": "B2607xxxx", "cas_password": "cas-pass"}).json()
+        assert r["ok"] is True
+        # 只改账号，密码留空 → 保留已有密码
+        r = c.post("/admin/api/settings", json={"cas_username": "B26071436"}).json()
+        assert r["ok"] is True
+        st = c.get("/admin/api/state").json()
+        assert st["user"]["cas_username"] == "B26071436"
+        assert st["user"]["cas_password_set"] is True
+        # 账号为空 → 拒绝保存
+        r = c.post("/admin/api/settings",
+                   json={"cas_username": "", "cas_password": "x"}).json()
+        assert r["ok"] is False and "不能为空" in r["error"]

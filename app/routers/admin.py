@@ -145,9 +145,16 @@ def api_settings(request: Request, body: CasSettingsIn,
                  user: dict = Depends(require_login)) -> dict[str, Any]:
     store: UserStore = request.app.state.store
     registry = get_registry(request)
+    cas_username = (body.cas_username or "").strip()
+    if not cas_username:
+        return {"ok": False, "error": "统一认证账号不能为空（请输入学号/工号）"}
     cas_password = body.cas_password if body.cas_password else None
-    store.update_cas(user["id"], cas_username=body.cas_username,
-                     cas_password=cas_password, cas_fingerprint=body.cas_fingerprint)
+    updated = store.update_cas(user["id"], cas_username=cas_username,
+                               cas_password=cas_password,
+                               cas_fingerprint=body.cas_fingerprint)
+    if not updated.get("cas_password"):
+        return {"ok": True, "message": "统一认证账号已保存（尚未设置密码，请填写密码后再保存一次）",
+                "session": get_registry(request).session(user["id"]).status()}
     # 账号/密码变化后清掉旧会话，避免继续用旧账号的登录态
     clear = bool(body.cas_username is not None or cas_password)
     registry.drop(user["id"], clear_cookies=clear)
@@ -738,6 +745,7 @@ async function api(path,opt){const r=await fetch(path,Object.assign({credentials
 async function post(path,body){return api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});}
 function fmt(v){return (v===undefined||v===null||v==='')?'-':esc(v);}
 let IS_ADMIN=false, CURRENT='overview';
+let casDirty=false;   // 统一认证表单是否被用户修改（避免 5s 自动刷新覆盖输入）
 
 function gotoPanel(name){
   if(!name) name='overview';
@@ -755,6 +763,7 @@ function gotoPanel(name){
 }
 document.querySelectorAll('.menu-item').forEach(a=>{a.addEventListener('click',()=>gotoPanel(a.dataset.panel));});
 window.addEventListener('hashchange',()=>gotoPanel((location.hash||'#overview').slice(1)));
+['cas-username','cas-password','cas-fingerprint'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',()=>{casDirty=true;});});
 
 async function refresh(){
   const st=await api('/admin/api/state');
@@ -766,8 +775,10 @@ async function refresh(){
   $('u-cas').textContent=fmt(st.user.cas_username);
   const key=st.user.api_key||''; $('u-key').textContent=key?key.slice(0,14)+'…':'-';
   $('api-key').value=key;
-  $('cas-username').value=st.user.cas_username||'';
-  $('cas-fingerprint').value=st.user.cas_fingerprint||'';
+  if(!casDirty){
+    $('cas-username').value=st.user.cas_username||'';
+    $('cas-fingerprint').value=st.user.cas_fingerprint||'';
+  }
   const s=st.session||{};
   $('s-status').innerHTML=s.logged_in?'<span class="ok-tag">已登录</span>':'<span class="bad-tag">未登录</span>';
   $('s-time').textContent=fmt(s.login_time);
@@ -775,6 +786,7 @@ async function refresh(){
   $('s-err').textContent=fmt(s.last_error);
   $('cas-note').textContent='登录状态：'+(s.logged_in?'已登录':'未登录')+'；最近登录：'+fmt(s.login_time)+
     (s.mfa_used?'；已通过二次验证':'')+(s.last_error?('；最近错误：'+s.last_error):'')+
+    '；密码：'+(st.user.cas_password_set?'已设置':'未设置')+
     '（用户数据：'+((st.env&&st.env.users_file)||'data/users.json')+'）';
   const env=st.env||{};
   if(env.data_writable===false){
@@ -815,7 +827,16 @@ function renderUsers(users){
 async function copyKey(){try{await navigator.clipboard.writeText($('api-key').value);show($('key-msg'),'API Key 已复制到剪贴板','ok');}catch(e){show($('key-msg'),'复制失败，请手动选择复制','err');}}
 async function regenKey(){if(!confirm('重新生成后，旧的 API Key 立即失效，确定？'))return;const r=await post('/admin/api/apikey/regenerate',{});show($('key-msg'),r.message||(r.ok?'已生成':'失败'),r.ok?'ok':'err');refresh();}
 async function changePassword(){const old=$('old-pwd').value,newp=$('new-pwd').value;if(!old||!newp){show($('pwd-msg'),'请输入当前密码和新密码','err');return;}const r=await post('/admin/api/account/password',{old_password:old,new_password:newp});show($('pwd-msg'),r.message||(r.ok?'已修改':'失败'+(r.error?('：'+r.error):'')),r.ok?'ok':'err');$('old-pwd').value='';$('new-pwd').value='';}
-async function saveCas(){const body={cas_username:$('cas-username').value.trim(),cas_fingerprint:$('cas-fingerprint').value.trim()};const p=$('cas-password').value;if(p)body.cas_password=p;const r=await post('/admin/api/settings',body);$('cas-password').value='';show($('cas-msg'),r.message||(r.ok?'已保存':'失败'),r.ok?'ok':'err');refresh();}
+async function saveCas(){
+  const username=$('cas-username').value.trim();
+  if(!username){show($('cas-msg'),'请先填写统一认证账号（学号/工号）','err');$('cas-username').focus();return;}
+  const body={cas_username:username,cas_fingerprint:$('cas-fingerprint').value.trim()};
+  const p=$('cas-password').value;if(p)body.cas_password=p;
+  const r=await post('/admin/api/settings',body);
+  $('cas-password').value='';casDirty=false;
+  show($('cas-msg'),r.message||(r.ok?'已保存':'失败'+(r.error?('：'+r.error):'')),r.ok?'ok':'err');
+  refresh();
+}
 async function clearSession(){if(!confirm('确定清除当前用户的 CAS 会话？'))return;const r=await post('/admin/api/session/clear',{});show($('overview-msg'),r.message||'已清除','ok');refresh();}
 function applyLoginResult(r){
   if(!r) return;
@@ -880,7 +901,8 @@ async function restartContainer(){
 }
 async function loadLogs(){const r=await api('/admin/api/logs?limit=200');$('logs').textContent=((r&&r.lines)||[]).join(String.fromCharCode(10));}
 refresh().then(()=>gotoPanel((location.hash||'#overview').slice(1)));loadLogs();
-setInterval(()=>{refresh();if(CURRENT==='logs'&&$('auto-log').checked)loadLogs();},5000);
+function isEditing(){const a=document.activeElement;return !!a&&['INPUT','TEXTAREA','SELECT'].includes(a.tagName);}
+setInterval(()=>{if(isEditing())return;refresh();if(CURRENT==='logs'&&$('auto-log').checked)loadLogs();},8000);
 </script>
 </body></html>"""
 
