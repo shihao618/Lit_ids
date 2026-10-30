@@ -88,6 +88,9 @@ def test_root_info():
         assert "智能查寝" in r.text
         assert "BJDM" in r.text
         assert "请求体参数" in r.text
+        assert "子参数" in r.text
+        assert "linkOpt" in r.text
+        assert "builder" in r.text
         assert "querySetting" in r.text
         # 页面不允许泄露任何密钥
         assert "test-key" not in r.text

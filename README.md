@@ -201,7 +201,21 @@ fnOS 上不需要源码、不需要构建，直接用 [docker-compose.fnos.yml](
 | `BJDM` | `""` | 班级代码，如 `B260714` |
 | `pageSize` | `10` | 每页条数（1~200） |
 | `pageNumber` | `1` | 页码 |
-| `querySetting` | 自动生成 | 官方筛选条件 JSON 字符串；不传则按 `BJDM` 生成 `[{"name":"BJDM","value":"B260714","linkOpt":"AND","builder":"equal"}]` |
+| `querySetting` | 自动生成 | 官方筛选条件 JSON **字符串**；不传则按 `BJDM` 生成 `[{"name":"BJDM","value":"B260714","linkOpt":"AND","builder":"equal"}]` |
+
+**`querySetting` 子参数**（它是 JSON 数组，数组每个元素是一个筛选条件）：
+
+| 字段 | 必填 | 说明 | 示例 |
+| --- | --- | --- | --- |
+| `name` | 是 | 筛选字段名（官方字段），如 `BJDM`、`CQZT` | `"BJDM"` |
+| `value` | 是 | 筛选值，与 name 对应 | `"B260714"` |
+| `linkOpt` | 否 | 多个条件之间的连接方式，常见 `AND` / `OR` | `"AND"` |
+| `builder` | 否 | 匹配方式，常见 `equal`（等于）；其它取值以官方页面为准 | `"equal"` |
+
+```json
+[{"name":"BJDM","value":"B260714","linkOpt":"AND","builder":"equal"},
+ {"name":"CQZT","value":"2","linkOpt":"AND","builder":"equal"}]
+```
 
 ```bash
 curl -X POST "http://127.0.0.1:10381/api/v1/xsfw/sjkb/cqztbg" \
