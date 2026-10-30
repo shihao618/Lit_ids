@@ -477,11 +477,29 @@ DOCS_TMPL = """<!doctype html>
 </div>
 <script>
 const ENDPOINTS = __ENDPOINTS_JSON__;
+function copyTextFallback(text){
+  const ta=document.createElement('textarea');
+  ta.value=text; ta.setAttribute('readonly','');
+  ta.style.position='fixed'; ta.style.top='-1000px'; ta.style.left='-1000px'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  let ok=false;
+  try{ok=document.execCommand('copy');}catch(e){ok=false;}
+  document.body.removeChild(ta);
+  return ok;
+}
+async function copyText(text){
+  let ok=false;
+  if(window.isSecureContext && navigator.clipboard && navigator.clipboard.writeText){
+    try{await navigator.clipboard.writeText(text);ok=true;}catch(e){ok=false;}
+  }
+  if(!ok) ok=copyTextFallback(text);
+  return ok;
+}
 function saveKey(){const v=document.getElementById('api-key').value.trim();localStorage.setItem('lit_api_key',v);document.getElementById('key-tip').textContent=v?'API Key 已保存到本机浏览器（localStorage）':'已清除 API Key';}
 (function(){const k=localStorage.getItem('lit_api_key');if(k)document.getElementById('api-key').value=k;})();
 document.addEventListener('click',async function(ev){
   const copyBtn=ev.target.closest('button.copy');
-  if(copyBtn){const pre=document.getElementById(copyBtn.dataset.copy);if(pre){try{await navigator.clipboard.writeText(pre.textContent);copyBtn.textContent='已复制';setTimeout(()=>copyBtn.textContent='复制',1200);}catch(e){}}return;}
+  if(copyBtn){const pre=document.getElementById(copyBtn.dataset.copy);if(pre){const ok=await copyText(pre.textContent);copyBtn.textContent=ok?'已复制':'复制失败，请手动选择';setTimeout(()=>copyBtn.textContent='复制',1600);}return;}
   const sendBtn=ev.target.closest('button.send');
   if(sendBtn){send(sendBtn.dataset.idx);}
 });

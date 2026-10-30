@@ -824,7 +824,33 @@ function renderUsers(users){
   $('users-tbody').innerHTML=h||'<tr><td colspan="6">暂无用户</td></tr>';
 }
 
-async function copyKey(){try{await navigator.clipboard.writeText($('api-key').value);show($('key-msg'),'API Key 已复制到剪贴板','ok');}catch(e){show($('key-msg'),'复制失败，请手动选择复制','err');}}
+function copyTextFallback(text){
+  const ta=document.createElement('textarea');
+  ta.value=text; ta.setAttribute('readonly','');
+  ta.style.position='fixed'; ta.style.top='-1000px'; ta.style.left='-1000px'; ta.style.opacity='0';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  let ok=false;
+  try{ok=document.execCommand('copy');}catch(e){ok=false;}
+  document.body.removeChild(ta);
+  return ok;
+}
+async function copyText(text){
+  let ok=false;
+  if(window.isSecureContext && navigator.clipboard && navigator.clipboard.writeText){
+    try{await navigator.clipboard.writeText(text);ok=true;}catch(e){ok=false;}
+  }
+  if(!ok) ok=copyTextFallback(text);
+  return ok;
+}
+async function copyKey(){
+  const text=$('api-key').value;
+  if(!text){show($('key-msg'),'当前没有可复制的 API Key','err');return;}
+  const ok=await copyText(text);
+  if(ok){show($('key-msg'),'API Key 已复制到剪贴板','ok');return;}
+  const el=$('api-key'); el.focus(); el.select();
+  show($('key-msg'),'浏览器不允许自动复制（HTTP 非安全环境）：已选中内容，请按 Ctrl+C / Cmd+C 手动复制','err');
+}
 async function regenKey(){if(!confirm('重新生成后，旧的 API Key 立即失效，确定？'))return;const r=await post('/admin/api/apikey/regenerate',{});show($('key-msg'),r.message||(r.ok?'已生成':'失败'),r.ok?'ok':'err');refresh();}
 async function changePassword(){const old=$('old-pwd').value,newp=$('new-pwd').value;if(!old||!newp){show($('pwd-msg'),'请输入当前密码和新密码','err');return;}const r=await post('/admin/api/account/password',{old_password:old,new_password:newp});show($('pwd-msg'),r.message||(r.ok?'已修改':'失败'+(r.error?('：'+r.error):'')),r.ok?'ok':'err');$('old-pwd').value='';$('new-pwd').value='';}
 async function saveCas(){
