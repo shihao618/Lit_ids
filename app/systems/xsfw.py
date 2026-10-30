@@ -205,30 +205,36 @@ class XsfwSystem(BaseSystem):
 
     # ------------------------------------------------------------------ 业务接口
     @staticmethod
-    def build_query_setting(bjdm: str) -> str:
-        """按浏览器抓包格式生成默认 querySetting."""
-        if not bjdm:
-            return "[]"
-        return json.dumps([{"name": "BJDM", "value": bjdm,
-                            "linkOpt": "AND", "builder": "equal"}],
-                          separators=(",", ":"), ensure_ascii=False)
+    def build_query_setting(filters: dict[str, str] | None = None) -> str:
+        """按浏览器抓包格式生成 querySetting（数组元素：name/value/linkOpt/builder）."""
+        items = []
+        for name, value in (filters or {}).items():
+            if value not in (None, ""):
+                items.append({"name": name, "value": str(value),
+                              "linkOpt": "AND", "builder": "equal"})
+        return json.dumps(items, separators=(",", ":"), ensure_ascii=False)
 
     def get_cqztbg(self, bjdm: str = "", page_number: int = 1, page_size: int = 10,
-                   query_setting: str | None = None, role: str | None = None) -> dict:
+                   query_setting: str | None = None, cqzt: str = "", cqztlx: str = "",
+                   dwdm: str = "", gzxs: str = "", role: str | None = None) -> dict:
         """智能查寝-查寝状态表格（官方 cqztbg.do），返回上游原始响应.
 
-        :param bjdm:         官方参数 BJDM（班级代码，如 B260714）
-        :param page_number:  官方参数 pageNumber
-        :param page_size:    官方参数 pageSize
-        :param query_setting: 官方参数 querySetting（JSON 字符串）；不传则按 BJDM 自动生成
-        :param role:         角色名（网关内部使用，默认自动选择有查寝权限的角色）
+        说明：服务端实际按 querySetting 过滤；直传的 BJDM/CQZT/CQZTLX/DWDM/GZXS
+        在抓包中会出现，但实测不生效，因此网关在不传 querySetting 时会把它们
+        合并成 querySetting（AND / equal）。
         """
+        filters = {"BJDM": bjdm, "DWDM": dwdm, "CQZT": cqzt,
+                   "CQZTLX": cqztlx, "GZXS": gzxs}
         fields = {
-            "querySetting": query_setting or self.build_query_setting(bjdm),
+            "querySetting": query_setting or self.build_query_setting(filters),
             "BJDM": bjdm,
             "pageSize": str(page_size),
             "pageNumber": str(page_number),
         }
+        for name, value in (("DWDM", dwdm), ("CQZT", cqzt),
+                            ("CQZTLX", cqztlx), ("GZXS", gzxs)):
+            if value not in (None, ""):
+                fields[name] = str(value)
         self.set_role(role)
         try:
             status, text = self._post_form(self.CQZTBG_PATH, fields)

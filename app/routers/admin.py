@@ -259,6 +259,10 @@ def api_logs(limit: int = Query(200, ge=1, le=500)) -> dict[str, Any]:
 @api.get("/test/cqztbg", summary="自测：智能查寝-查寝状态表格（官方 cqztbg.do）")
 def test_cqztbg(
     bjdm: str = Query("", alias="BJDM"),
+    dwdm: str = Query("", alias="DWDM"),
+    cqzt: str = Query("", alias="CQZT"),
+    cqztlx: str = Query("", alias="CQZTLX"),
+    gzxs: str = Query("", alias="GZXS"),
     page_size: int = Query(10, alias="pageSize", ge=1, le=200),
     page_number: int = Query(1, alias="pageNumber", ge=1),
     query_setting: str = Query("", alias="querySetting"),
@@ -267,7 +271,9 @@ def test_cqztbg(
     try:
         data = system.get_cqztbg(bjdm=bjdm, page_number=page_number,
                                  page_size=page_size,
-                                 query_setting=query_setting or None)
+                                 query_setting=query_setting or None,
+                                 cqzt=cqzt, cqztlx=cqztlx,
+                                 dwdm=dwdm, gzxs=gzxs)
         return {"ok": True, "data": data}
     except (SystemError, SessionError) as e:
         return _err(e)
@@ -623,7 +629,11 @@ _DASHBOARD_TMPL = """<!doctype html>
         <h2>接口自测（智能查寝 · 使用我自己的会话）</h2>
         <div class="row">
           <span>官方参数：</span>
-          <input id="test-bjdm" value="" placeholder="BJDM 班级代码" style="width:170px">
+          <input id="test-bjdm" value="" placeholder="BJDM 班级代码" style="width:150px">
+          <input id="test-dwdm" value="" placeholder="DWDM" style="width:90px">
+          <input id="test-cqzt" value="" placeholder="CQZT(1/2/3)" style="width:130px">
+          <input id="test-cqztlx" value="" placeholder="CQZTLX" style="width:100px">
+          <input id="test-gzxs" value="" placeholder="GZXS" style="width:85px">
           <input id="test-page-number" value="1" placeholder="pageNumber" style="width:100px">
           <input id="test-page-size" value="10" placeholder="pageSize" style="width:95px">
           <button type="button" onclick="testCqztbg()">查询</button>
@@ -853,6 +863,10 @@ async function resendMfa(){const r=await post('/admin/api/mfa/resend',{});show($
 async function testCqztbg(){
   const q=new URLSearchParams({
     BJDM:$('test-bjdm').value.trim(),
+    DWDM:$('test-dwdm').value.trim(),
+    CQZT:$('test-cqzt').value.trim(),
+    CQZTLX:$('test-cqztlx').value.trim(),
+    GZXS:$('test-gzxs').value.trim(),
     pageNumber:$('test-page-number').value||1,
     pageSize:$('test-page-size').value||10,
     querySetting:$('test-query-setting').value.trim()

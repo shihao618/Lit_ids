@@ -26,4 +26,6 @@ def cqztbg(body: CqztbgIn, system: XsfwSystem = Depends(get_xsfw)) -> dict[str, 
     """
     return system.get_cqztbg(bjdm=body.BJDM, page_number=body.pageNumber,
                              page_size=body.pageSize,
-                             query_setting=body.querySetting)
+                             query_setting=body.querySetting,
+                             cqzt=body.CQZT, cqztlx=body.CQZTLX,
+                             dwdm=body.DWDM, gzxs=body.GZXS)

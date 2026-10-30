@@ -74,14 +74,17 @@ SUB_PARAM_DOCS: dict[tuple[str, str], dict[str, dict]] = {
         "querySetting": {
             "title": "querySetting 子参数（JSON 数组的每个元素）",
             "description": ("querySetting 是 JSON 数组字符串，数组每个元素表示一个筛选条件；"
-                            "多个条件用 linkOpt 连接，例如："),
+                            "多个条件用 linkOpt 连接。实测可筛选字段：BJDM、DWDM、CQZT、CQZTLX、"
+                            "GZXS、XH、XSBH、XM、FJH、CWH、WID、RQ（其它字段以官方模型为准）。例如："),
             "example": ('[{"name":"BJDM","value":"B260714","linkOpt":"AND","builder":"equal"},'
                         '{"name":"CQZT","value":"2","linkOpt":"AND","builder":"equal"}]'),
             "rows": [
                 ("name", "必填", "筛选字段名（官方字段），如 `BJDM`、`CQZT`", "BJDM"),
                 ("value", "必填", "筛选值，与 name 对应", "B260714"),
-                ("linkOpt", "可选", "多个条件之间的连接方式，常见 `AND` / `OR`", "AND"),
-                ("builder", "可选", "匹配方式，常见 `equal`（等于）；其它取值以官方页面为准", "equal"),
+                ("linkOpt", "可选", "多个条件之间的连接方式：`AND` / `OR`", "AND"),
+                ("builder", "可选",
+                 "匹配方式：`equal`（等于）、`include`（包含）、`less`、`lessEqual`、`moreEqual`；"
+                 "非法值会返回 Not found object", "equal"),
             ],
         },
     },

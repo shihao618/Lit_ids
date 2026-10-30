@@ -41,10 +41,11 @@ class FakeXsfw(XsfwSystem):
         return [{"GNMC": "数据看板"}]
 
     def get_cqztbg(self, bjdm="", page_number=1, page_size=10,
-                   query_setting=None, role=None):
+                   query_setting=None, cqzt="", cqztlx="", dwdm="", gzxs="", role=None):
         self.last_call.update({"bjdm": bjdm, "page_number": page_number,
-                               "page_size": page_size,
-                               "query_setting": query_setting, "role": role})
+                               "page_size": page_size, "query_setting": query_setting,
+                               "cqzt": cqzt, "cqztlx": cqztlx,
+                               "dwdm": dwdm, "gzxs": gzxs, "role": role})
         return {"code": "0", "datas": {"cqztbg": {
             "totalSize": 1, "pageSize": page_size, "pageNumber": page_number,
             "rows": [{"XH": "B2607xxxx", "XM": "示例同学", "BJDM": bjdm,
@@ -92,6 +93,8 @@ def test_root_info():
         assert "linkOpt" in r.text
         assert "builder" in r.text
         assert "querySetting" in r.text
+        assert "lessEqual" in r.text
+        assert "CQZTLX" in r.text
         # 页面不允许泄露任何密钥
         assert "test-key" not in r.text
         assert "test-admin" not in r.text
@@ -135,7 +138,8 @@ def test_cqztbg_official_params():
     app.dependency_overrides[get_xsfw] = lambda: fake
     with TestClient(app) as c:
         r = c.post(CQZTBG, headers=HEADERS, json={
-            "BJDM": "B260714", "pageSize": 50, "pageNumber": 2,
+            "BJDM": "B260714", "DWDM": "07", "CQZT": "2", "CQZTLX": "21", "GZXS": "0",
+            "pageSize": 50, "pageNumber": 2,
             "querySetting": '[{"name":"BJDM","value":"B260714","linkOpt":"AND","builder":"equal"}]'})
         assert r.status_code == 200
         body = r.json()
@@ -145,6 +149,10 @@ def test_cqztbg_official_params():
         assert fake.last_call["page_number"] == 2
         assert fake.last_call["page_size"] == 50
         assert "linkOpt" in fake.last_call["query_setting"]
+        assert fake.last_call["cqzt"] == "2"
+        assert fake.last_call["cqztlx"] == "21"
+        assert fake.last_call["dwdm"] == "07"
+        assert fake.last_call["gzxs"] == "0"
 
 
 def test_cqztbg_default_params():
@@ -157,6 +165,10 @@ def test_cqztbg_default_params():
         assert fake.last_call["page_number"] == 1
         assert fake.last_call["page_size"] == 10
         assert fake.last_call["query_setting"] is None
+        assert fake.last_call["cqzt"] == ""
+        assert fake.last_call["cqztlx"] == ""
+        assert fake.last_call["dwdm"] == ""
+        assert fake.last_call["gzxs"] == ""
 
 
 def test_cqztbg_validation():

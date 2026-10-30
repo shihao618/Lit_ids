@@ -199,18 +199,24 @@ fnOS 上不需要源码、不需要构建，直接用 [docker-compose.fnos.yml](
 | 参数 | 默认 | 说明（官方） |
 | --- | --- | --- |
 | `BJDM` | `""` | 班级代码，如 `B260714` |
+| `DWDM` | `""` | 学院/单位代码，如 `07` |
+| `CQZT` | `""` | 查寝状态：`1`=未归寝、`2`=已归寝、`3`=离校请假 |
+| `CQZTLX` | `""` | 查寝状态类型：`11`=未联系上、`12`=已报备、`21`=正常归寝、`22`=晚归 |
+| `GZXS` | `""` | 关注学生：`1`=只看关注学生、`0`=全部 |
 | `pageSize` | `10` | 每页条数（1~200） |
 | `pageNumber` | `1` | 页码 |
-| `querySetting` | 自动生成 | 官方筛选条件 JSON **字符串**；不传则按 `BJDM` 生成 `[{"name":"BJDM","value":"B260714","linkOpt":"AND","builder":"equal"}]` |
+| `querySetting` | 自动生成 | 筛选条件 JSON **字符串**；不传则由上面的 `BJDM/DWDM/CQZT/CQZTLX/GZXS` 自动生成 |
+
+> 实测：服务端**只按 `querySetting` 过滤**。直传的 `BJDM/DWDM/CQZT/CQZTLX/GZXS` 虽然会出现在官方请求体中，但不会单独生效；网关已在不传 `querySetting` 时自动把它们合并成 `AND/equal` 条件。
 
 **`querySetting` 子参数**（它是 JSON 数组，数组每个元素是一个筛选条件）：
 
 | 字段 | 必填 | 说明 | 示例 |
 | --- | --- | --- | --- |
-| `name` | 是 | 筛选字段名（官方字段），如 `BJDM`、`CQZT` | `"BJDM"` |
+| `name` | 是 | 筛选字段名（官方字段）；实测可用：`BJDM`、`DWDM`、`CQZT`、`CQZTLX`、`GZXS`、`XH`、`XSBH`、`XM`、`FJH`、`CWH`、`WID`、`RQ` | `"BJDM"` |
 | `value` | 是 | 筛选值，与 name 对应 | `"B260714"` |
-| `linkOpt` | 否 | 多个条件之间的连接方式，常见 `AND` / `OR` | `"AND"` |
-| `builder` | 否 | 匹配方式，常见 `equal`（等于）；其它取值以官方页面为准 | `"equal"` |
+| `linkOpt` | 否 | 多个条件之间的连接方式：`AND` / `OR` | `"AND"` |
+| `builder` | 否 | 匹配方式：`equal`（等于）、`include`（包含）、`less`、`lessEqual`、`moreEqual`；非法值会返回 `Not found object [xxx]` | `"equal"` |
 
 ```json
 [{"name":"BJDM","value":"B260714","linkOpt":"AND","builder":"equal"},

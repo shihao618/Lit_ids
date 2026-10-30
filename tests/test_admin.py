@@ -33,7 +33,8 @@ class FakeXsfw:
     def menu(self):
         return [{"GNMC": "数据看板"}]
 
-    def get_cqztbg(self, bjdm="", page_number=1, page_size=10, query_setting=None, role=None):
+    def get_cqztbg(self, bjdm="", page_number=1, page_size=10, query_setting=None,
+                   cqzt="", cqztlx="", dwdm="", gzxs="", role=None):
         return {"code": "0", "datas": {"cqztbg": {
             "totalSize": 1, "pageSize": page_size, "pageNumber": page_number,
             "rows": [{"XH": "B2607xxxx", "XM": "示例同学", "BJDM": bjdm}]}}}
