@@ -223,6 +223,19 @@ def test_calendar_official_params():
         assert "00:00:00" in fake.last_call["d1"]
 
 
+def test_calendar_date_range_optional():
+    """d1/d2 可省略（上游实测不需要），只传 xnxqdm + zc 也能查询."""
+    fake = FakeLljw()
+    app.dependency_overrides[get_lljw] = lambda: fake
+    with TestClient(app) as c:
+        r = c.post(CALENDAR, headers=HEADERS, json={"xnxqdm": "202601", "zc": 7})
+        assert r.status_code == 200
+        assert fake.last_call["xnxqdm"] == "202601"
+        assert fake.last_call["zc"] == 7
+        assert fake.last_call["d1"] == ""
+        assert fake.last_call["d2"] == ""
+
+
 def test_calendar_requires_api_key():
     with TestClient(app) as c:
         r = c.post(CALENDAR, json={"xnxqdm": "202601", "zc": 7,
@@ -232,13 +245,11 @@ def test_calendar_requires_api_key():
 
 
 def test_calendar_validation():
-    with TestClient(app) as c:
+    with _client() as c:
+        # 必填：xnxqdm、zc（d1/d2 已改为可选）
+        assert c.post(CALENDAR, headers=HEADERS, json={"zc": 7}).status_code == 422
         assert c.post(CALENDAR, headers=HEADERS,
-                      json={"xnxqdm": "202601", "zc": 0,
-                            "d1": "2026-10-26 00:00:00",
-                            "d2": "2026-11-02 00:00:00"}).status_code == 422
-        assert c.post(CALENDAR, headers=HEADERS,
-                      json={"xnxqdm": "202601", "zc": 7}).status_code == 422
+                      json={"xnxqdm": "202601", "zc": 0}).status_code == 422
 
 
 def test_calendar_in_docs_and_meta():

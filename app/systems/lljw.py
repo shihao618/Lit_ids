@@ -118,10 +118,15 @@ class LljwSystem(BaseSystem):
         zc_s = str(zc or "").strip()
         d1 = str(d1 or "").strip().replace("+", " ")
         d2 = str(d2 or "").strip().replace("+", " ")
-        if not xnxqdm or not zc_s or not d1 or not d2:
-            raise SystemError("教务系统参数不完整：需要 xnxqdm/zc/d1/d2",
+        if not xnxqdm or not zc_s:
+            raise SystemError("教务系统参数不完整：需要 xnxqdm/zc（d1/d2 可选）",
                               code="BAD_PARAMS", http_status=422)
-        fields = {"xnxqdm": xnxqdm, "zc": zc_s, "d1": d1, "d2": d2}
+        # d1/d2 实测可省略/为空，上游仍返回该周课表；传了则原样带上
+        fields = {"xnxqdm": xnxqdm, "zc": zc_s}
+        if d1:
+            fields["d1"] = d1
+        if d2:
+            fields["d2"] = d2
         referer = self._referer(xnxqdm, zc_s, d1, d2)
         with self.session.lock:
             self.ensure_session()

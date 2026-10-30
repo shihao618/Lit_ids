@@ -127,7 +127,7 @@ class CqztbgIn(BaseModel):
 class CalendarWeekIn(BaseModel):
     """教务系统 getCalendarWeekDatas 参数（官方字段名）."""
 
-    xnxqdm: str = Field(..., min_length=4, description="学年学期代码，如 202601")
-    zc: int = Field(..., ge=1, le=60, description="周次，如 7")
-    d1: str = Field(..., description="开始日期时间，如 2026-10-26 00:00:00")
-    d2: str = Field(..., description="结束日期时间，如 2026-11-02 00:00:00")
+    xnxqdm: str = Field(..., min_length=4, description="学年学期代码，如 202601（必填）")
+    zc: int = Field(..., ge=1, le=60, description="周次，如 7（必填）")
+    d1: str = Field("", description="开始日期时间，如 2026-10-26 00:00:00（可选，可省略）")
+    d2: str = Field("", description="结束日期时间，如 2026-11-02 00:00:00（可选，可省略）")

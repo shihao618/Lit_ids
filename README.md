@@ -251,8 +251,8 @@ curl -X POST "http://127.0.0.1:10381/api/v1/xsfw/sjkb/cqztbg" \
 | --- | --- | --- | --- |
 | `xnxqdm` | string | 是 | 学年学期代码，如 `202601` |
 | `zc` | int | 是 | 周次，如 `7` |
-| `d1` | string | 是 | 开始日期时间，如 `2026-10-26 00:00:00` |
-| `d2` | string | 是 | 结束日期时间，如 `2026-11-02 00:00:00` |
+| `d1` | string | 否 | 开始日期时间，如 `2026-10-26 00:00:00`（实测可省略） |
+| `d2` | string | 否 | 结束日期时间，如 `2026-11-02 00:00:00`（实测可省略） |
 
 ```bash
 curl -X POST "http://127.0.0.1:10381/api/v1/lljw/xsgrkb/getCalendarWeekDatas" \
@@ -268,7 +268,7 @@ curl -X POST "http://127.0.0.1:10381/api/v1/lljw/xsgrkb/getCalendarWeekDatas" \
   "jsrq":"2026-10-26","zc":"7","xnxqdm":"202601","xq":"1","kkxqdm":"2"}]}
 ```
 
-> 网关会用当前 API Key 用户的 CAS 会话自动 SSO 到教务系统（`https://lljw.lit.edu.cn/new/ssoLogin`）；
+> `d1/d2` 可省略（只传 `xnxqdm` + `zc` 也能查到同一周课表）；网关会用当前 API Key 用户的 CAS 会话自动 SSO 到教务系统（`https://lljw.lit.edu.cn/new/ssoLogin`）；
 > 教务系统会话失效会自动重新 SSO 一次；CAS 本身失效则返回 `503 SESSION_ERROR`。
 
 ### 4.3 多用户与 API Key 规则
