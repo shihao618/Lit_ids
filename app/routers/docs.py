@@ -50,7 +50,13 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
             "final_url": "http://ids.lit.edu.cn/authserver/personal/"}},
     },
     ("POST", "/api/v1/xsfw/sjkb/cqztbg"): {
-        "request": {"BJDM": "B260714", "pageSize": 10, "pageNumber": 1},
+        "request": {
+            "BJDM": "B260714",
+            "pageSize": 10,
+            "pageNumber": 1,
+            "querySetting": ('[{"name":"BJDM","value":"B260714",'
+                             '"linkOpt":"AND","builder":"equal"}]'),
+        },
         "response": {"code": "0", "datas": {"cqztbg": {
             "totalSize": 39, "pageSize": 10, "pageNumber": 1,
             "rows": [{"XH": "B2607xxxx", "XM": "示例同学", "BJDM": "B260714",

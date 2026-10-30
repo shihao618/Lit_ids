@@ -206,8 +206,10 @@ fnOS 上不需要源码、不需要构建，直接用 [docker-compose.fnos.yml](
 ```bash
 curl -X POST "http://127.0.0.1:10381/api/v1/xsfw/sjkb/cqztbg" \
   -H "X-API-Key: <你的 Key>" -H "Content-Type: application/json" \
-  -d '{"BJDM":"B260714","pageSize":10,"pageNumber":1}'
+  -d '{"BJDM":"B260714","pageSize":10,"pageNumber":1,"querySetting":"[{\"name\":\"BJDM\",\"value\":\"B260714\",\"linkOpt\":\"AND\",\"builder\":\"equal\"}]"}'
 ```
+
+> `querySetting` 可省略；省略时网关会按 `BJDM` 自动生成上面这个值（官方筛选条件格式）。
 
 返回官方结构（`datas.cqztbg`）：
 
