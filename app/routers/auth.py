@@ -18,6 +18,10 @@ router = APIRouter(prefix="/api/v1/auth", tags=["认证/会话"],
             summary="查看当前 API Key 用户的 CAS 会话状态")
 def auth_status(session: SessionManager = Depends(get_session),
                 user: dict = Depends(get_api_user)) -> dict[str, Any]:
+    try:
+        session.check_valid()          # 30 秒缓存，掉线时 logged_in=false
+    except Exception:                  # noqa: BLE001 网络异常不阻塞状态接口
+        pass
     return session.status()
 
 

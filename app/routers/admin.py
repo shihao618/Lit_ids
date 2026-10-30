@@ -118,6 +118,10 @@ def api_state(request: Request, user: dict = Depends(require_login)) -> dict[str
     store: UserStore = request.app.state.store
     registry = get_registry(request)
     session = registry.session(user["id"])
+    try:
+        session.check_valid()          # 30 秒缓存，CAS 掉线时界面会显示「已掉线」
+    except Exception:                  # noqa: BLE001 网络异常不阻塞状态接口
+        pass
     is_admin = user.get("role") == "admin"
     users = []
     if is_admin:
@@ -233,6 +237,17 @@ def api_session_clear(request: Request, user: dict = Depends(require_login)) -> 
     registry.drop(user["id"], clear_cookies=True)
     return {"ok": True, "status": "cleared", "session": session.status(),
             "message": "会话已清除（下次接口调用会重新登录）"}
+
+
+@api.post("/session/check", summary="检测我的统一认证会话是否仍然有效")
+def api_session_check(request: Request, user: dict = Depends(require_login)) -> dict[str, Any]:
+    session = get_registry(request).session(user["id"])
+    valid = session.check_valid(force=True)
+    message = ("统一认证会话有效" if valid
+               else "统一认证已掉线（TGC 失效），请到「🧪 登录调试」重新登录")
+    log.info("用户 %s 检测会话: %s", user.get("username"), valid)
+    return {"ok": True, "valid": valid, "message": message,
+            "session": session.status()}
 
 
 @api.get("/logs", summary="最近运行日志")
@@ -522,6 +537,7 @@ _DASHBOARD_TMPL = """<!doctype html>
         <h2>我的统一认证会话</h2>
         <div class="kv">
           <b>登录状态</b><span id="s-status">-</span>
+          <b>会话检测</b><span id="s-valid">-</span>
           <b>登录时间</b><span id="s-time">-</span>
           <b>TGC</b><span id="s-tgc" style="word-break:break-all">-</span>
           <b>最近错误</b><span id="s-err">-</span>
@@ -529,6 +545,7 @@ _DASHBOARD_TMPL = """<!doctype html>
         <div class="row">
           <button type="button" onclick="startLogin(false)">登录（复用有效会话）</button>
           <button type="button" class="gray" onclick="startLogin(true)">强制重新登录</button>
+          <button type="button" class="gray" onclick="checkSession()">检测会话状态</button>
           <button type="button" class="red" onclick="clearSession()">清除我的 CAS 会话</button>
         </div>
         <div id="overview-msg" class="msg"></div>
@@ -724,7 +741,14 @@ async function refresh(){
     $('cas-fingerprint').value=st.user.cas_fingerprint||'';
   }
   const s=st.session||{};
-  $('s-status').innerHTML=s.logged_in?'<span class="ok-tag">已登录</span>':'<span class="bad-tag">未登录</span>';
+  if(s.session_expired){
+    $('s-status').innerHTML='<span class="bad-tag">已掉线（请重新登录）</span>';
+  }else{
+    $('s-status').innerHTML=s.logged_in?'<span class="ok-tag">已登录</span>':'<span class="bad-tag">未登录</span>';
+  }
+  $('s-valid').textContent=s.valid_checked_at
+    ?(s.session_expired?'已失效':(s.tgc_valid===true?'有效':'-'))+'（'+s.valid_checked_at+'）'
+    :'-';
   $('s-time').textContent=fmt(s.login_time);
   $('s-tgc').textContent=fmt(s.tgc_masked);
   $('s-err').textContent=fmt(s.last_error);
@@ -808,6 +832,12 @@ async function saveCas(){
   refresh();
 }
 async function clearSession(){if(!confirm('确定清除当前用户的 CAS 会话？'))return;const r=await post('/admin/api/session/clear',{});show($('overview-msg'),r.message||'已清除','ok');refresh();}
+async function checkSession(){
+  show($('overview-msg'),'正在检测统一认证会话（可能需要几秒）…','');
+  const r=await post('/admin/api/session/check',{});
+  show($('overview-msg'),r.message||(r.valid?'会话有效':'会话已失效'),r.valid?'ok':'err');
+  refresh();
+}
 function applyLoginResult(r){
   if(!r) return;
   const target=$('login-msg'); target.classList.add('show');

@@ -343,3 +343,38 @@ def test_admin_selftest_uses_cookie_auth():
         r = c.get("/admin/api/test/cqztbg?BJDM=B260714")
         assert r.status_code == 200          # 旧实现返回 401
         assert "ok" in r.json()
+
+
+def test_session_status_detects_expired_tgc(tmp_path, monkeypatch):
+    """CAS 掉线（TGC 失效）时，status 必须显示未登录/已掉线，而不是一直已登录."""
+    import lit_login as L
+    from app.session import SessionManager
+
+    class Creds:
+        username = "B2607xxxx"
+        password = "x"
+        fingerprint = None
+
+    mgr = SessionManager(Creds(), str(tmp_path / "s.json"))
+    mgr._client = object()             # 模拟已加载的本地 client
+    mgr._cookies = {"TGC": "dummy-tgc"}
+    monkeypatch.setattr(L, "check_saved_session", lambda cookies, timeout=20: False)
+    assert mgr.check_valid(force=True) is False
+    st = mgr.status()
+    assert st["logged_in"] is False
+    assert st["session_expired"] is True
+    assert st["tgc_valid"] is False
+    assert "已失效" in st["last_error"]
+
+
+def test_admin_session_check_endpoint_and_state_fields():
+    with TestClient(app) as c:
+        _login(c)
+        st = _state(c)
+        assert "session_expired" in st["session"]
+        assert "tgc_valid" in st["session"]
+        assert "valid_checked_at" in st["session"]
+        r = c.post("/admin/api/session/check").json()
+        assert r["ok"] is True
+        assert r["valid"] is False          # 测试环境没有 CAS 会话
+        assert "掉线" in r["message"] or "失效" in r["message"]

@@ -48,6 +48,9 @@ class SessionManager:
         self._cookies: dict[str, str] = {}
         self._meta: dict = {}
         self._last_error: str | None = None
+        #: TGC 有效性缓存（None=尚未检测；True/False=最近一次检测结果）
+        self._valid: bool | None = None
+        self._valid_checked_at: float | None = None
         #: 会话版本号：每次登录成功/清除会话 +1（业务系统据此重建自己的会话）
         self.generation = 0
         #: 待完成的二次验证状态（后台界面输入验证码用）
@@ -71,6 +74,8 @@ class SessionManager:
         self._meta = {k: v for k, v in data.items() if k != "cookies"}
         if self._cookies:
             self._client = L.client_with_cookies(self._cookies)
+            self._valid = None
+            self._valid_checked_at = None
             log.info("[%s] 已加载会话文件 (login_time=%s)", self.label,
                      self._meta.get("login_time"))
 
@@ -89,6 +94,8 @@ class SessionManager:
         self._meta = {k: v for k, v in payload.items() if k != "cookies"}
         self._pending = None
         self._last_error = None
+        self._valid = True
+        self._valid_checked_at = time.time()
         self.generation += 1
         self._save_session_file(payload)
 
@@ -130,7 +137,13 @@ class SessionManager:
         cookies = self._cookies
         tgc = cookies.get("TGC", "")
         return {
-            "logged_in": self._client is not None,
+            # 有 client 且最近检测未失效；None（未检测）按已登录展示，后台会自动检测
+            "logged_in": self._client is not None and self._valid is not False,
+            "session_expired": self._valid is False,
+            "tgc_valid": self._valid,
+            "valid_checked_at": (time.strftime("%Y-%m-%d %H:%M:%S",
+                                               time.localtime(self._valid_checked_at))
+                                 if self._valid_checked_at else None),
             "username": self._meta.get("username") or self.credentials.username,
             "cas_username": self.credentials.username,
             "cas_configured": bool(self.credentials.username and self.credentials.password),
@@ -153,12 +166,51 @@ class SessionManager:
     # ------------------------------------------------------------------ 登录
     def _tgc_valid(self) -> bool:
         if not self._cookies:
+            self._valid = False
+            self._valid_checked_at = time.time()
             return False
         try:
-            return L.check_saved_session(self._cookies)
+            ok = bool(L.check_saved_session(self._cookies))
         except Exception as e:  # noqa: BLE001
             log.warning("[%s] 校验 TGC 失败: %s", self.label, e)
-            return False
+            # 网络异常时不判定失效，保留上次结果
+            return self._valid is not False
+        self._valid = ok
+        self._valid_checked_at = time.time()
+        if not ok:
+            self._last_error = "统一认证会话已失效（TGC 无效），请重新登录"
+            log.warning("[%s] 统一认证会话已失效（TGC 无效）", self.label)
+        return ok
+
+    def check_valid(self, force: bool = False, ttl: float = 30.0, timeout: int = 8) -> bool:
+        """检测 CAS 会话是否仍有效（带缓存，默认 30 秒内不重复请求）.
+
+        * force=True：忽略缓存立即检测（后台「检测会话状态」按钮用）；
+        * 网络异常时不把会话判定为失效（避免误报掉线）。
+        """
+        with self._lock:
+            if self._client is None:
+                self._valid = False
+                self._valid_checked_at = time.time()
+                return False
+            if (not force and self._valid is not None
+                    and self._valid_checked_at
+                    and time.time() - self._valid_checked_at < ttl):
+                return bool(self._valid)
+            cookies = dict(self._cookies)
+        try:
+            ok = bool(L.check_saved_session(cookies, timeout=timeout))
+        except Exception as e:  # noqa: BLE001
+            log.warning("[%s] 检测统一认证会话失败（网络异常）: %s", self.label, e)
+            return bool(self._valid) if self._valid is not None else True
+        with self._lock:
+            self._valid = ok
+            self._valid_checked_at = time.time()
+            if not ok:
+                self._last_error = "统一认证会话已失效（TGC 无效），请重新登录"
+                log.warning("[%s] 统一认证会话已失效（TGC 无效）", self.label)
+        return ok
+
 
     def _debug(self, stage: str, result: str | None = None, error: str | None = None) -> None:
         self.debug.update({
@@ -337,6 +389,8 @@ class SessionManager:
             self._meta = {}
             self._pending = None
             self._last_error = None
+            self._valid = None
+            self._valid_checked_at = None
             self.generation += 1
             try:
                 os.remove(self.cookie_file)
