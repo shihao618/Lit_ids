@@ -2,8 +2,7 @@
 
 页面:
   GET  /            前台接口文档（HTML，自动根据 OpenAPI 生成）
-  GET  /api-docs    同上（别名）
-  GET  /api/v1/meta 服务元信息（JSON）
+    GET  /api/v1/meta 服务元信息（JSON）
 
 说明:
   * 文档内容由 FastAPI 的 OpenAPI 自动生成（新增接口后页面自动出现），
@@ -27,7 +26,7 @@ router = APIRouter(tags=["前台接口文档"])
 #: 不在前台文档中展示的路径
 HIDDEN_PATHS = {
     "/openapi.json", "/docs", "/redoc", "/docs/oauth2-redirect",
-    "/healthz", "/readyz", "/api-docs", "/api/v1/meta",
+    "/healthz", "/readyz", "/api/v1/meta",
 }
 
 #: 人工维护的示例（key = (METHOD, path)）
@@ -423,11 +422,6 @@ def _render_html(app: Any, request: Request) -> str:
 # ============================================================ 路由
 @router.get("/", response_class=HTMLResponse, include_in_schema=False, summary="前台接口文档")
 def docs_page(request: Request) -> HTMLResponse:
-    return HTMLResponse(_render_html(request.app, request))
-
-
-@router.get("/api-docs", response_class=HTMLResponse, include_in_schema=False, summary="前台接口文档")
-def docs_page_alias(request: Request) -> HTMLResponse:
     return HTMLResponse(_render_html(request.app, request))
 
 

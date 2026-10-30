@@ -47,7 +47,7 @@ from ..schemas import (
     CasSettingsIn, SelfPasswordIn, SystemSettingsIn, UserCreateIn,
 )
 from ..session import SessionError
-from ..settings_store import EDITABLE, apply_log_level
+from ..settings_store import DEFAULTS, EDITABLE, apply_log_level
 from ..systems import SystemError
 from ..users import UserStore
 
@@ -60,7 +60,7 @@ router = APIRouter(tags=["后台界面"])
 def _app_name(request: Request) -> str:
     runtime = getattr(request.app.state, "runtime_settings", None)
     name = runtime.get("app_name") if runtime is not None else None
-    return name or request.app.state.settings.app_name
+    return name or DEFAULTS["app_name"]
 
 
 @router.get("/admin", response_class=HTMLResponse, summary="后台调试界面")

@@ -113,8 +113,7 @@ def test_root_info():
         # 页面不允许泄露任何密钥
         assert "test-key" not in r.text
         assert "test-admin" not in r.text
-        r2 = c.get("/api-docs")
-        assert r2.status_code == 200 and "接口文档" in r2.text
+        assert c.get("/api-docs").status_code == 404   # 旧别名已移除
 
 
 def test_meta_json():
@@ -193,7 +192,7 @@ def test_cqztbg_validation():
 
 
 def test_only_one_business_api():
-    """按需求只提供 cqztbg.do 一个业务接口，旧接口应全部移除."""
+    """只保留 cqztbg 与 calendar 两个业务接口，旧接口应全部移除."""
     with _client() as c:
         for method, path in (
             ("get", "/api/v1/xsfw/roles"),

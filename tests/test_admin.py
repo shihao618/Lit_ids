@@ -359,11 +359,11 @@ def test_cas_account_validation_and_password_kept():
 
 
 def test_admin_selftest_uses_cookie_auth():
-    """后台接口自测必须走 cookie 登录用户自己的会话，不能要求 X-API-Key（旧版 401 会导致前端跳概览）."""
+    """后台接口自测必须走 cookie 登录用户自己的会话，不能要求 X-API-Key（否则前端会跳概览）. """
     with TestClient(app) as c:
         _login(c)
         r = c.get("/admin/api/test/cqztbg?BJDM=B260714")
-        assert r.status_code == 200          # 旧实现返回 401
+        assert r.status_code == 200
         assert "ok" in r.json()
 
 

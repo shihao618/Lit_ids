@@ -1,7 +1,6 @@
 """运行时系统配置（后台「系统设置」可修改，落盘 data/settings.json）.
 
-从 .env 只保留"部署基础设施"配置（数据目录、初始管理员等）；
-下面这些以前在 .env 里的运行参数改为后台可改：
+运行参数只在后台「系统设置」维护（落盘 data/settings.json），不从 .env 读取：
   * app_name                 界面/文档标题（即时生效；Swagger 标题需重启）
   * log_level                日志级别（即时生效）
   * session_refresh_interval 会话保活间隔秒（即时生效，后台任务动态读取）

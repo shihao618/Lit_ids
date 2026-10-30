@@ -24,7 +24,7 @@ from .config import Settings, get_settings
 from .logbuf import log_buffer
 from .registry import SessionRegistry
 from .session import SessionError
-from .settings_store import RuntimeSettings, apply_log_level
+from .settings_store import DEFAULTS, RuntimeSettings, apply_log_level
 from .systems import SystemError
 from .users import StoreError, UserStore
 
@@ -72,13 +72,9 @@ async def _session_worker(app: FastAPI) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings: Settings = app.state.settings
-    # 运行参数（后台可改）：文件不存在时用环境变量/defaults 初始化
-    runtime_settings = RuntimeSettings(settings.settings_file, defaults={
-        "app_name": settings.app_name,
-        "log_level": settings.log_level,
-        "session_refresh_interval": settings.session_refresh_interval,
-        "auto_login_on_start": settings.auto_login,
-    })
+    # 运行参数（后台可改）：文件不存在时用内置默认值初始化（不读 .env）
+    # 运行参数只从 data/settings.json 读取（.env 不参与运行参数）
+    runtime_settings = RuntimeSettings(settings.settings_file)
     app.state.runtime_settings = runtime_settings
 
     logging.basicConfig(
@@ -127,7 +123,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
-        title=settings.app_name,
+        title=DEFAULTS["app_name"],
         version=settings.version,
         description=(
             "洛阳理工学院统一认证（CAS）多用户接口网关（智能查寝 + 教务系统）。\n\n"
@@ -141,7 +137,7 @@ def create_app() -> FastAPI:
 
     from .routers import admin, auth, docs, health, lljw, xsfw
 
-    app.include_router(docs.router)      # 前台接口文档（GET / 、/api-docs）
+    app.include_router(docs.router)      # 前台接口文档（GET /）
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(xsfw.router)
@@ -186,8 +182,7 @@ def create_app() -> FastAPI:
             "auth": "每个用户在后台获得自己的 API Key（X-API-Key 请求头），调用各自统一认证账号的接口",
             "endpoints": [
                 "GET  /                           前台接口文档页面",
-                "GET  /api-docs                   前台接口文档页面（别名）",
-                "GET  /admin                      后台菜单式调试界面（多用户）",
+                        "GET  /admin                      后台菜单式调试界面（多用户）",
                 "GET  /api/v1/auth/status         当前 API Key 用户的会话状态",
                 "POST /api/v1/auth/login          登录当前 API Key 用户的统一认证",
                 "POST /api/v1/xsfw/sjkb/cqztbg",

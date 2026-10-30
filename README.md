@@ -12,7 +12,7 @@
 * 🎓 **业务系统**：智能查寝（xsfw WIS 平台 `zncqapp`），通过 CAS SSO 免密进入；
 * ✅ **业务接口（仅此一个）**：`POST /api/v1/xsfw/sjkb/cqztbg`（官方 `cqztbg.do`，官方参数/官方返回）。
 
-> 版本说明：本版为「多用户 + 菜单后台 + 配置后台化」版本，**不兼容旧版单用户的 `.env` 运行参数**
+> 运行参数（系统名称/日志级别/会话保活/启动自动登录）**只在后台「系统设置」修改**（`data/settings.json`），`.env` 仅用于部署与首次引导。
 > （`LIT_*`、`SESSION_REFRESH_INTERVAL` 等已移除）。旧 .env 请只保留下面的初始化配置。
 
 ---
@@ -186,7 +186,6 @@ fnOS 上不需要源码、不需要构建，直接用 [docker-compose.fnos.yml](
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/` | 前台接口文档页面（自动生成，含在线调试） |
-| GET | `/api-docs` | 前台接口文档页面（别名） |
 | GET | `/healthz` / `/readyz` | 健康检查（无需鉴权） |
 | GET | `/api/v1/auth/status` | 当前 API Key 用户的 CAS 会话状态 |
 | POST | `/api/v1/auth/login` | 登录/刷新当前 API Key 用户的统一认证会话（可带 `mfa_code`） |
@@ -356,7 +355,7 @@ app/
     lljw.py             教务系统接口路由
     auth.py             会话状态/登录（按 API Key 用户）
     health.py           健康检查
-tests/                  离线测试（35 个）：认证核心 / 两个业务接口 / 多用户后台 / 系统设置
+tests/                  离线测试（36 个）：认证核心 / 两个业务接口 / 多用户后台 / 系统设置
 Dockerfile              python:3.12-slim-bookworm、非 root、健康检查
 docker-compose.yml      本地/服务器部署（源码构建）：数据卷 ./data:/data、env_file .env、端口 10381
 docker-compose.fnos.yml fnOS（飞牛OS）部署：直接用 GHCR 镜像，无需源码/构建
@@ -370,7 +369,7 @@ data/                   用户表、各用户 CAS 会话、系统设置（运行
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest tests -q          # 35 passed（离线，不访问校园网）
+python -m pytest tests -q          # 36 passed（离线，不访问校园网）
 uvicorn app.main:app --host 0.0.0.0 --port 10381 --reload
 ```
 
@@ -410,7 +409,6 @@ python lit_login.py -u B2607xxxx -p 'your-password' --force-login
 | 统一认证已掉线但后台显示「已登录」 | 已修复：后台概览/`/api/v1/auth/status` 会用 TGC 实测会话有效性（30 秒缓存），失效显示「已掉线（请重新登录）」；可点「检测会话状态」立即复查，随后在「🧪 登录调试」重新登录（可能需要企业微信验证码） |
 | 后台「统一认证」保存失败/保存后不生效 | 多为数据目录不可写（后台会显示红色警告，保存接口也会返回明确错误）：在 NAS 上执行 `chown -R 1000:1000 ./data` 后重启容器；本地则检查 `data/` 权限 |
 | 保存成功但登录仍用旧账号 | 保存统一认证账号会清除旧 CAS 会话，请到「🧪 登录调试」重新登录；若仍异常，`Ctrl+F5` 强制刷新后台页面（后台 HTML 已设置 no-store） |
-| 输入统一认证账号后过几秒自动消失 / 保存后只有密码没有账号 | 旧版后台每 5 秒自动刷新会覆盖正在编辑的输入框（导致保存时账号为空）。已修复：编辑时暂停刷新 + 脏标记保护 + 保存时账号非空校验。升级镜像后 `Ctrl+F5` 刷新后台即可 |
 | 「我的账号」点复制提示「复制失败，请手动选择复制」 | 用 HTTP + 局域网 IP 访问时浏览器禁用 Clipboard API（非安全上下文）。已修复：自动降级为 execCommand 复制，仍失败会自动选中内容，按 `Ctrl+C` 即可；也可通过 HTTPS 反向代理访问 |
 | Linux 宿主机挂载 `./data` 后报权限错误 | 容器内运行用户 UID 为 999（appuser）：`sudo chown -R 999:999 ./data` 后重启容器 |
 

@@ -26,7 +26,6 @@ os.environ["DATA_DIR"] = TMP_DIR
 os.environ["USERS_FILE"] = USERS_FILE
 os.environ["SESSION_DIR"] = SESSION_DIR
 os.environ["SETTINGS_FILE"] = os.path.join(TMP_DIR, "settings.json")
-os.environ["LOG_LEVEL"] = "WARNING"
 
 SETTINGS_FILE = os.environ["SETTINGS_FILE"]
 
