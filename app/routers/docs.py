@@ -156,6 +156,39 @@ def _response_schema(op: dict, spec: dict) -> dict | None:
     return None
 
 
+def _body_param_rows(op: dict, spec: dict) -> list[dict]:
+    """从 requestBody schema 提取顶层参数（用于 POST/PUT 的 JSON 请求体参数表）."""
+    schema = _body_schema(op, spec)
+    if not schema:
+        return []
+    if "properties" not in schema:
+        merged = {"properties": {}, "required": []}
+        for part in schema.get("allOf") or []:
+            if part.get("$ref"):
+                part = _resolve_ref(spec, part["$ref"])
+            merged["properties"].update(part.get("properties") or {})
+            merged["required"].extend(part.get("required") or [])
+        schema = merged
+    required = set(schema.get("required") or [])
+    rows = []
+    for name, prop in (schema.get("properties") or {}).items():
+        item = prop
+        outer_desc = item.get("description") or ""
+        if item.get("$ref"):
+            item = _resolve_ref(spec, item["$ref"])
+        if "anyOf" in item:
+            item = next((x for x in item["anyOf"] if x.get("type") != "null"), item)
+        rows.append({
+            "name": name,
+            "type": item.get("type") or "",
+            "enum": item.get("enum") or [],
+            "required": name in required,
+            "default": item.get("default"),
+            "description": item.get("description") or outer_desc,
+        })
+    return rows
+
+
 def _build_endpoints(app: Any) -> list[dict]:
     spec = app.openapi()
     groups: dict[str, list[dict]] = {}
@@ -169,6 +202,7 @@ def _build_endpoints(app: Any) -> list[dict]:
             key = (method.upper(), path)
             ex = EXAMPLES.get(key, {})
             params = _param_rows(op, spec)
+            body_params = _body_param_rows(op, spec)
             body_schema = _body_schema(op, spec)
             req_example = ex.get("request")
             if req_example is None and body_schema is not None:
@@ -183,6 +217,7 @@ def _build_endpoints(app: Any) -> list[dict]:
                 "summary": op.get("summary") or "",
                 "description": (op.get("description") or "").strip(),
                 "params": params,
+                "body_params": body_params,
                 "request": req_example,
                 "response": resp_example,
             })
@@ -235,6 +270,21 @@ def _render_endpoint(ep: dict, idx: int, base: str) -> str:
                              "是" if p["required"] else "否",
                              _h(p["default"]) if p["default"] is not None else "-",
                              _h(p["description"])))
+        parts.append("</tbody></table>")
+    if ep.get("body_params"):
+        parts.append('<div class="blk-title">请求体参数（JSON）</div>')
+        parts.append('<table class="params"><thead><tr><th>参数</th><th>类型</th>'
+                     '<th>必填</th><th>默认值</th><th>说明</th></tr></thead><tbody>')
+        for bp in ep["body_params"]:
+            type_display = bp["type"]
+            if bp["enum"]:
+                type_display = "%s（%s）" % (type_display, " / ".join(str(x) for x in bp["enum"]))
+            parts.append("<tr><td><code>%s</code></td><td>%s</td><td>%s</td>"
+                         "<td>%s</td><td>%s</td></tr>" % (
+                             _h(bp["name"]), _h(type_display),
+                             "是" if bp["required"] else "否",
+                             _h(bp["default"]) if bp["default"] is not None else "-",
+                             _h(bp["description"])))
         parts.append("</tbody></table>")
     if ep["request"] is not None:
         body = json.dumps(ep["request"], ensure_ascii=False, indent=2)
