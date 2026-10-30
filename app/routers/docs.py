@@ -35,7 +35,7 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
     ("GET", "/api/v1/auth/status"): {
         "response": {
             "logged_in": True, "username": "B2607xxxx",
-            "login_time": "2026-10-29 18:54:17",
+            "login_time": "2026-10-30 09:00:00",
             "final_url": "http://ids.lit.edu.cn/authserver/personal/",
             "fingerprint_saved": True, "cookie_names": ["JSESSIONID", "TGC"],
             "tgc_masked": "eyJhbGciOiJIUzUxMi...（已脱敏）",
@@ -46,60 +46,21 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
         "request": {"force": True, "mfa_code": None},
         "response": {"code": 0, "msg": "ok", "data": {
             "ok": True, "reused": False, "logged_in": True,
-            "username": "B2607xxxx", "login_time": "2026-10-29 18:54:17",
+            "username": "B2607xxxx", "login_time": "2026-10-30 09:00:00",
             "final_url": "http://ids.lit.edu.cn/authserver/personal/"}},
     },
-    ("GET", "/api/v1/xsfw/roles"): {
-        "response": {"code": 0, "msg": "ok", "data": [
-            {"role_id": "2460061458af472aa806c230e6033107",
-             "role_name": "班级管理员", "data_role": "DZDSW601"},
-            {"role_id": "dc459c176f684436aef22f072929e516",
-             "role_name": "学生组", "data_role": "DSW600"}]},
-    },
-    ("GET", "/api/v1/xsfw/menu"): {
-        "response": {"code": 0, "msg": "ok", "data": {
-            "role": {"ROLEID": "2460061458af472aa806c230e6033107",
-                     "ROLENAME": "班级管理员", "DATAROLE": "DZDSW601"},
-            "menu": [{"GNID": "swmzncqapp-swmzncqapp_sskq", "GNBS": "swmzncqapp_sskq",
-                      "GNMC": "数据看板", "buttons": ["swmzncqapp_sjkb_sskb"],
-                      "PX": "8", "LX": "1"}]}},
-    },
-    ("GET", "/api/v1/xsfw/sjkb/ssgq/students"): {
-        "response": {
-            "code": "0", "msg": "成功",
-            "data": [
-                {"XSXM": "示例同学", "XH": "B2607xxxx", "BJMC": "B260714",
-                 "FJH": "417", "SSLDM_DISPLAY": "xx学生公寓",
-                 "CQZT": "2", "CQZT_DISPLAY": "已归寝",
-                 "CQZTLX": "21", "CQZTLX_DISPLAY": "正常归寝",
-                 "DWDM_DISPLAY": "xx学院"},
-            ],
-        },
-    },
-    ("GET", "/api/v1/xsfw/sjkb/getCqztDic"): {
-        "response": {"code": "0", "msg": "成功", "data": [
-            {"DM": "1", "MC": "未归寝"},
-            {"DM": "2", "MC": "已归寝"},
-            {"DM": "3", "MC": "离校请假"}]},
-    },
-    ("GET", "/api/v1/xsfw/sjkb/getCqztlxDic"): {
-        "response": {"code": "0", "msg": "成功", "data": [
-            {"DM": "11", "MC": "未联系上", "CQZT": "1"},
-            {"DM": "12", "MC": "已报备", "CQZT": "1"},
-            {"DM": "21", "MC": "正常归寝", "CQZT": "2"},
-            {"DM": "22", "MC": "晚归", "CQZT": "2"}]},
-    },
-    ("POST", "/api/v1/xsfw/call"): {
-        "request": {"path": "/xsfw/sys/swmzncqapp/modules/sjkb/getSsgqStudent.do",
-                    "data": {"SEARCHKEY": "", "pageNumber": 1, "pageSize": 10, "CQZT": "1"}},
-        "response": {"code": 0, "msg": "ok",
-                     "data": {"code": "0", "msg": "成功", "data": []},
-                     "meta": {"system": "xsfw", "path": "/xsfw/sys/.../getSsgqStudent.do",
-                              "role": "班级管理员", "fetched_at": "2026-10-29 18:54:17"}},
+    ("POST", "/api/v1/xsfw/sjkb/cqztbg"): {
+        "request": {"BJDM": "B260714", "pageSize": 10, "pageNumber": 1},
+        "response": {"code": "0", "datas": {"cqztbg": {
+            "totalSize": 39, "pageSize": 10, "pageNumber": 1,
+            "rows": [{"XH": "B2607xxxx", "XM": "示例同学", "BJDM": "B260714",
+                      "FJMC": "218", "CWH": "2", "SSLMC": "xx学生公寓",
+                      "CQZT": "2", "CQZT_DISPLAY": "已归寝",
+                      "CQZTLX": "21", "CQZTLX_DISPLAY": "正常归寝"}]}}},
     },
 }
 
-TAG_ORDER = ["认证/会话", "学工系统 xsfw", "元信息"]
+TAG_ORDER = ["认证/会话", "智能查寝", "元信息"]
 
 
 # ============================================================ OpenAPI 辅助
@@ -444,7 +405,7 @@ DOCS_TMPL = """<!doctype html>
   <main>
     <div class="hero">
       <h2>洛阳理工学院统一认证 · 接口服务</h2>
-      <p>多用户版：每个网关用户拥有自己的统一认证账号、独立 CAS 会话和独立 API Key，各自调用对应系统的接口。</p>
+      <p>多用户版：每个网关用户拥有自己的统一认证账号、独立 CAS 会话和独立 API Key；当前业务接口为「智能查寝」。</p>
       <div class="kv">
         <span>Base URL：<code>__BASE__</code></span>
         <span>鉴权：<code>X-API-Key</code> 请求头</span>
@@ -467,9 +428,8 @@ DOCS_TMPL = """<!doctype html>
         <tr><th>HTTP / code</th><th>含义</th><th>处理建议</th></tr>
         <tr><td>401 + <code>{"detail":"无效的 API Key…"}</code></td><td>API Key 缺失或错误</td><td>在页面顶部填写正确的 API_KEY</td></tr>
         <tr><td>503 + <code>SESSION_ERROR</code></td><td>CAS 会话失效且自动登录失败 / 需要企业微信验证码</td><td>到 <a href="/admin">后台</a> 登录调试页处理（输入验证码或重新登录）</td></tr>
-        <tr><td>403 + <code>FORBIDDEN</code></td><td>业务系统角色无权限（如 xsfw 学生组角色）</td><td>使用有权限的角色（班级管理员），或指定 role 参数</td></tr>
-        <tr><td>400 + <code>BAD_PATH</code></td><td>通用调用 path 非法</td><td>path 必须以 /xsfw/sys/ 开头</td></tr>
-        <tr><td>200 + <code>{"code":0}</code></td><td>成功</td><td>-</td></tr>
+        <tr><td>403 + <code>FORBIDDEN</code></td><td>智能查寝角色无权限（如「学生组」）</td><td>使用有查寝权限的角色（如「班级管理员」）</td></tr>
+            <tr><td>200 + <code>{"code":0}</code></td><td>成功</td><td>-</td></tr>
       </table>
     </section>
     <footer>接口文档由 OpenAPI 自动生成 · 多用户版 · 配置自己的统一认证账号/查看 API Key 请访问 <a href="/admin">后台管理</a></footer>

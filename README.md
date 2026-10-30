@@ -9,8 +9,8 @@
 * 🔐 **统一认证核心**：账号密码 + 自动识别滑块验证码 + 企业微信二次验证 + 每个用户独立的 CAS 会话（TGC）持久化；
 * 🔑 **每人一个 API Key**：请求头 `X-API-Key` 决定使用哪个用户的统一认证会话；重新生成后旧 Key 立即失效；
 * 📖 **前台接口文档**（`/`）：参数说明、curl 示例、请求/响应示例、在线调试，由 OpenAPI 自动生成；
-* 🎓 **第一个业务系统**：学工系统 xsfw（WIS 平台），通过 CAS SSO 免密进入；
-* ✅ **第一个接口**：`GET /api/v1/xsfw/sjkb/ssgq/students`（官方 `getSsgqStudent.do`，官方参数/官方返回）。
+* 🎓 **业务系统**：智能查寝（xsfw WIS 平台 `zncqapp`），通过 CAS SSO 免密进入；
+* ✅ **业务接口（仅此一个）**：`POST /api/v1/xsfw/sjkb/cqztbg`（官方 `cqztbg.do`，官方参数/官方返回）。
 
 > 版本说明：本版为「多用户 + 菜单后台 + 配置后台化」版本，**不兼容旧版单用户的 `.env` 运行参数**
 > （`LIT_*`、`SESSION_REFRESH_INTERVAL` 等已移除）。旧 .env 请只保留下面的初始化配置。
@@ -27,13 +27,13 @@
                        │   │    ├─ docs.py      前台接口文档（/）                       │
                        │   │    ├─ admin.py     菜单式后台（登录/用户管理/系统设置/重启）  │
                        │   │    ├─ auth.py      /api/v1/auth/*（按 API Key 用户）        │
-                       │   │    └─ xsfw.py      学工系统接口（官方参数/返回）            │
+                       │   │    └─ xsfw.py      智能查寝接口（官方参数/返回）            │
                        │   ├─ users.py          用户存储（密码哈希/API Key/每人 CAS 账号）│
                        │   ├─ registry.py       每个用户一个 SessionManager + XsfwSystem │
                        │   ├─ session.py        单用户 CAS 会话（登录/复用/MFA/持久化）  │
                        │   ├─ settings_store.py 后台「系统设置」（data/settings.json）   │
                        │   ├─ restart.py        后台「重启容器」                        │
-                       │   └─ systems/xsfw.py   学工系统适配（SSO + 角色 + 接口调用）    │
+                       │   └─ systems/xsfw.py   智能查寝适配（SSO + 角色 + cqztbg）      │
                        │                                                              │
                        │  lit_login.py（统一认证核心：AES / 滑块验证码 / MFA / TGC）     │
                        └──────────────┬──────────────────────────┬────────────────────┘
@@ -75,8 +75,9 @@ docker compose up -d --build
 
 ```bash
 # 调用接口（每个用户用自己的 Key）
-curl -H "X-API-Key: <你的 API Key>" \
-     "http://127.0.0.1:10381/api/v1/xsfw/sjkb/ssgq/students?CQZT=2&pageSize=10"
+curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json" \
+     -d '{"BJDM":"B260714","pageSize":10,"pageNumber":1}' \
+     "http://127.0.0.1:10381/api/v1/xsfw/sjkb/cqztbg"
 ```
 
 入口一览：
@@ -189,33 +190,35 @@ fnOS 上不需要源码、不需要构建，直接用 [docker-compose.fnos.yml](
 | GET | `/healthz` / `/readyz` | 健康检查（无需鉴权） |
 | GET | `/api/v1/auth/status` | 当前 API Key 用户的 CAS 会话状态 |
 | POST | `/api/v1/auth/login` | 登录/刷新当前 API Key 用户的统一认证会话（可带 `mfa_code`） |
-| GET | `/api/v1/xsfw/roles` | 当前用户的 xsfw 角色列表（辅助） |
-| GET | `/api/v1/xsfw/menu` | 当前角色菜单/功能（辅助） |
-| **GET** | **`/api/v1/xsfw/sjkb/ssgq/students`** | **学生归寝查询（官方 getSsgqStudent.do）** |
-| GET | `/api/v1/xsfw/sjkb/getCqztDic` | 查寝状态字典（官方 getCqztDic.do） |
-| GET | `/api/v1/xsfw/sjkb/getCqztlxDic` | 查寝状态类型字典（官方 getCqztlxDic.do，参数 CQZT） |
-| POST | `/api/v1/xsfw/call` | 通用调用 xsfw 接口（`/xsfw/sys/**` 白名单，data 为官方参数 JSON） |
+| **POST** | **`/api/v1/xsfw/sjkb/cqztbg`** | **智能查寝-查寝状态表格（官方 cqztbg.do，唯一业务接口）** |
 
-### 4.1 学生归寝查询（官方参数 / 官方返回）
+### 4.1 智能查寝-查寝状态表格（官方参数 / 官方返回）
 
-| 参数 | 位置 | 默认 | 说明（官方） |
-| --- | --- | --- | --- |
-| `SEARCHKEY` | query | `""` | 搜索关键字 |
-| `pageNumber` | query | `1` | 页码 |
-| `pageSize` | query | `10` | 每页条数（1~200） |
-| `CQZT` | query | 空 | 查寝状态：`1`=未归寝、`2`=已归寝、`3`=离校请假，空=全部 |
-| `CQZTLX` | query | 空 | 查寝状态类型：`11`=未联系上、`12`=已报备、`21`=正常归寝、`22`=晚归 |
+`POST /api/v1/xsfw/sjkb/cqztbg`（JSON 请求体，字段名与官方接口一致）
+
+| 参数 | 默认 | 说明（官方） |
+| --- | --- | --- |
+| `BJDM` | `""` | 班级代码，如 `B260714` |
+| `pageSize` | `10` | 每页条数（1~200） |
+| `pageNumber` | `1` | 页码 |
+| `querySetting` | 自动生成 | 官方筛选条件 JSON 字符串；不传则按 `BJDM` 生成 `[{"name":"BJDM","value":"B260714","linkOpt":"AND","builder":"equal"}]` |
 
 ```bash
-curl -H "X-API-Key: <你的 Key>" "http://127.0.0.1:10381/api/v1/xsfw/sjkb/ssgq/students?CQZT=2&pageSize=200"  # 已归寝
-curl -H "X-API-Key: <你的 Key>" "http://127.0.0.1:10381/api/v1/xsfw/sjkb/ssgq/students?CQZT=3&pageSize=200"  # 离校请假
-curl -H "X-API-Key: <你的 Key>" "http://127.0.0.1:10381/api/v1/xsfw/sjkb/ssgq/students?pageSize=200"          # 全部
-curl -H "X-API-Key: <你的 Key>" "http://127.0.0.1:10381/api/v1/xsfw/sjkb/getCqztDic"                        # 状态字典
-curl -H "X-API-Key: <你的 Key>" "http://127.0.0.1:10381/api/v1/xsfw/sjkb/getCqztlxDic?CQZT=2"               # 类型字典
+curl -X POST "http://127.0.0.1:10381/api/v1/xsfw/sjkb/cqztbg" \
+  -H "X-API-Key: <你的 Key>" -H "Content-Type: application/json" \
+  -d '{"BJDM":"B260714","pageSize":10,"pageNumber":1}'
 ```
 
-返回官方结构：`{"code":"0","msg":"成功","data":[{...}]}`。
-班级管理员只能看到本班数据；`CQZT=3` 返回空数组表示当天本班无人「离校请假」。
+返回官方结构（`datas.cqztbg`）：
+
+```json
+{"code":"0","datas":{"cqztbg":{"totalSize":39,"pageSize":10,"pageNumber":1,
+  "rows":[{"XH":"B2607xxxx","XM":"示例同学","BJDM":"B260714","FJH":"218",
+           "SSLMC":"xx学生公寓","CQZT":"2","CQZT_DISPLAY":"已归寝",
+           "CQZTLX":"21","CQZTLX_DISPLAY":"正常归寝"}]}}}
+```
+
+班级管理员只能看到本班数据（B260714 当前约 39 人）；`totalSize` 为总条数，`pageNumber/pageSize` 用于分页。
 
 ### 4.2 多用户与 API Key 规则
 
@@ -293,14 +296,14 @@ app/
   schemas.py            请求/响应模型
   systems/
     base.py             BaseSystem 抽象
-    xsfw.py             学工系统适配（SSO + 角色 + 官方接口）
+    xsfw.py             智能查寝适配（SSO + 角色 + cqztbg.do）
   routers/
     docs.py             前台接口文档（自动生成）
     admin.py            菜单式后台 + 后台 API
-    xsfw.py             学工系统接口路由
+    xsfw.py             智能查寝接口路由
     auth.py             会话状态/登录（按 API Key 用户）
     health.py           健康检查
-tests/                  离线测试（26 个）：认证核心 / 接口 / 多用户后台 / 系统设置
+tests/                  离线测试（28 个）：认证核心 / 接口 / 多用户后台 / 系统设置
 Dockerfile              python:3.12-slim-bookworm、非 root、健康检查
 docker-compose.yml      本地/服务器部署（源码构建）：数据卷 ./data:/data、env_file .env、端口 10381
 docker-compose.fnos.yml fnOS（飞牛OS）部署：直接用 GHCR 镜像，无需源码/构建
@@ -314,17 +317,16 @@ data/                   用户表、各用户 CAS 会话、系统设置（运行
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest tests -q          # 26 passed（离线，不访问校园网）
+python -m pytest tests -q          # 28 passed（离线，不访问校园网）
 uvicorn app.main:app --host 0.0.0.0 --port 10381 --reload
 ```
 
-测试覆盖：CAS 核心工具、API Key 鉴权、官方参数接口、字典接口、多用户登录/创建/删除、
+测试覆盖：CAS 核心工具、API Key 鉴权、智能查寝 cqztbg 参数/校验、多用户登录/创建/删除、
 密码/Key 重置、权限隔离、系统设置读取/保存/重启按钮（mock）、MFA 联动。
 
 ## 10. 扩展新系统 / 新接口
 
-**新增 xsfw 接口**：在 `app/systems/xsfw.py` 加语义化方法，在 `app/routers/xsfw.py` 加路由（保持官方参数/返回）；
-未封装的接口可先用 `POST /api/v1/xsfw/call` 调通。
+**新增智能查寝接口**：在 `app/systems/xsfw.py` 加语义化方法，在 `app/routers/xsfw.py` 加路由（保持官方参数/返回）。
 
 **新增业务系统**（如教务系统）：在 `app/systems/` 新建适配器（继承 `BaseSystem`）→
 在 `app/registry.py` 注册该系统实例（按用户）→ 在 `deps.py` 加依赖 → 在 `routers/` 加路由并挂到 `main.py`。
@@ -350,7 +352,7 @@ python lit_login.py -u B2607xxxx -p 'your-password' --force-login
 | 忘记后台密码 | 让其他管理员在「用户管理」重置；只有一个管理员时删除 `data/users.json` 会清空所有用户（可用 .env 重新引导） |
 | 新用户调用接口返回 503 SESSION_ERROR | 该用户还没配置统一认证账号，或密码错误/需要企业微信验证码 |
 | 需要重新生成 API Key | 后台「👤 我的账号」点重新生成；旧 Key 立即失效 |
-| `data` 为空数组 | 上游确实没有数据（如 `CQZT=3` 当天无人离校请假） |
+| 查寝表格无数据 | 上游确实没有数据：`datas.cqztbg.totalSize` 为 0 / `rows` 为空 |
 | 多个用户能否用同一个统一认证账号 | 可以，但每个用户各自建立/维护自己的 CAS 会话（各自独立登录、各自 API Key） |
 | 后台「统一认证」保存失败/保存后不生效 | 多为数据目录不可写（后台会显示红色警告，保存接口也会返回明确错误）：在 NAS 上执行 `chown -R 1000:1000 ./data` 后重启容器；本地则检查 `data/` 权限 |
 | 保存成功但登录仍用旧账号 | 保存统一认证账号会清除旧 CAS 会话，请到「🧪 登录调试」重新登录；若仍异常，`Ctrl+F5` 强制刷新后台页面（后台 HTML 已设置 no-store） |
@@ -363,8 +365,8 @@ python lit_login.py -u B2607xxxx -p 'your-password' --force-login
 * 密码：AES-128-CBC（key = 登录页 `salt`，iv = `1234567890abcdef`，PKCS7，base64）；
 * 滑块：`captcha/gen` → 本地「缺口模板叠加模型」求 `randomX` → `captcha/check` 换 token；
 * MFA：密码通过后出现「企业微信验证码验证」页，提交 `execution + _eventId=submit + code`；
-* xsfw：CAS SSO 换票后必须先 `setAppRole` 建立角色上下文，否则 `/modules/**` 全部 403；
-* WIS 移动端接口参数格式：表单字段 `data=<JSON 字符串>`。
+* 智能查寝：CAS SSO 换票后必须先 `setAppRole`（APPID `5499550419006327`）建立角色上下文，否则 `/modules/**` 全部 403；
+* WIS 参数格式：`swpubapp` 接口用 `data=<JSON>`；智能查寝 `cqztbg.do` 用平铺表单字段 `querySetting/BJDM/pageSize/pageNumber`。
 
 ## 14. 安全与合规
 

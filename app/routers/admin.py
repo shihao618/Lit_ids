@@ -44,7 +44,7 @@ from ..logbuf import log_buffer
 from ..restart import schedule_restart
 from ..schemas import (
     AdminCasIn, AdminLoginIn, AdminMfaIn, AdminPasswordIn, AdminRoleIn,
-    CasSettingsIn, GenericCallIn, SelfPasswordIn, SystemSettingsIn, UserCreateIn,
+    CasSettingsIn, SelfPasswordIn, SystemSettingsIn, UserCreateIn,
 )
 from ..session import SessionError
 from ..settings_store import EDITABLE, apply_log_level
@@ -240,64 +240,20 @@ def api_logs(limit: int = Query(200, ge=1, le=500)) -> dict[str, Any]:
     return {"lines": log_buffer.get(limit)}
 
 
-# ------------------------------------------------------------ 接口自测（使用当前用户自己的会话）
-@api.get("/test/roles", summary="自测：角色列表")
-def test_roles(system=Depends(get_admin_xsfw)) -> dict[str, Any]:
-    try:
-        return {"ok": True, "data": system.roles(refresh=True)}
-    except (SystemError, SessionError) as e:
-        return _err(e)
-
-
-@api.get("/test/menu", summary="自测：当前角色菜单")
-def test_menu(system=Depends(get_admin_xsfw)) -> dict[str, Any]:
-    try:
-        system.ensure_session()
-        if system.current_role() is None:
-            system.set_role()
-        return {"ok": True, "data": {"role": system.current_role(), "menu": system.menu()}}
-    except (SystemError, SessionError) as e:
-        return _err(e)
-
-
-@api.get("/test/students", summary="自测：学生归寝查询（官方参数）")
-def test_students(
-    searchkey: str = Query("", alias="SEARCHKEY"),
-    page_number: int = Query(1, alias="pageNumber", ge=1),
+# ------------------------------------------------------------ 接口自测（智能查寝）
+@api.get("/test/cqztbg", summary="自测：智能查寝-查寝状态表格（官方 cqztbg.do）")
+def test_cqztbg(
+    bjdm: str = Query("", alias="BJDM"),
     page_size: int = Query(10, alias="pageSize", ge=1, le=200),
-    cqzt: str = Query("", alias="CQZT"),
-    cqztlx: str = Query("", alias="CQZTLX"),
+    page_number: int = Query(1, alias="pageNumber", ge=1),
+    query_setting: str = Query("", alias="querySetting"),
     system=Depends(get_admin_xsfw),
 ) -> dict[str, Any]:
     try:
-        data = system.get_ssgq_students(searchkey=searchkey, page_number=page_number,
-                                        page_size=page_size, cqzt=cqzt, cqztlx=cqztlx)
+        data = system.get_cqztbg(bjdm=bjdm, page_number=page_number,
+                                 page_size=page_size,
+                                 query_setting=query_setting or None)
         return {"ok": True, "data": data}
-    except (SystemError, SessionError) as e:
-        return _err(e)
-
-
-@api.get("/test/getCqztDic", summary="自测：查寝状态字典")
-def test_cqzt_dic(system=Depends(get_admin_xsfw)) -> dict[str, Any]:
-    try:
-        return {"ok": True, "data": system.get_cqzt_dic()}
-    except (SystemError, SessionError) as e:
-        return _err(e)
-
-
-@api.get("/test/getCqztlxDic", summary="自测：查寝状态类型字典")
-def test_cqztlx_dic(cqzt: str = Query("", alias="CQZT"), system=Depends(get_admin_xsfw)) -> dict[str, Any]:
-    try:
-        return {"ok": True, "data": system.get_cqztlx_dic(cqzt=cqzt)}
-    except (SystemError, SessionError) as e:
-        return _err(e)
-
-
-@api.post("/test/call", summary="自测：通用调用")
-def test_call(body: GenericCallIn, system=Depends(get_admin_xsfw)) -> dict[str, Any]:
-    try:
-        system.set_role(None)
-        return {"ok": True, "data": system.call(body.path, body.data)}
     except (SystemError, SessionError) as e:
         return _err(e)
 
@@ -644,31 +600,19 @@ _DASHBOARD_TMPL = """<!doctype html>
       </div>
     </section>
 
-    <!-- 接口自测 -->
+    <!-- 接口自测（智能查寝） -->
     <section class="panel" id="panel-test">
       <div class="card">
-        <h2>接口自测（使用我自己的会话）</h2>
+        <h2>接口自测（智能查寝 · 使用我自己的会话）</h2>
         <div class="row">
-          <button type="button" class="gray" onclick="testRoles()">角色列表</button>
-          <button type="button" class="gray" onclick="testMenu()">菜单</button>
-          <button type="button" class="gray" onclick="testCqztDic()">CQZT 字典</button>
-          <button type="button" class="gray" onclick="testCqztlxDic()">CQZTLX 类型</button>
-        </div>
-        <div class="row" style="margin-top:10px">
-          <span>学生归寝（官方参数）：</span>
-          <input id="test-searchkey" value="" placeholder="SEARCHKEY" style="width:130px">
+          <span>官方参数：</span>
+          <input id="test-bjdm" value="" placeholder="BJDM 班级代码" style="width:170px">
           <input id="test-page-number" value="1" placeholder="pageNumber" style="width:100px">
           <input id="test-page-size" value="10" placeholder="pageSize" style="width:95px">
-          <input id="test-cqzt" value="" placeholder="CQZT(1/2/3, 空=全部)" style="width:185px">
-          <input id="test-cqztlx" value="" placeholder="CQZTLX(可空)" style="width:130px">
-          <button type="button" onclick="testStudents()">查询</button>
+          <button type="button" onclick="testCqztbg()">查询</button>
         </div>
-        <div class="row" style="margin-top:10px">
-          <span>通用调用：</span>
-          <input id="test-path" style="flex:1;min-width:280px" value="/xsfw/sys/swmzncqapp/modules/sjkb/getSsgqStudent.do">
-          <button type="button" onclick="testCall()">调用</button>
-        </div>
-        <textarea id="test-data">{"SEARCHKEY":"","pageNumber":1,"pageSize":5,"CQZT":""}</textarea>
+        <label>querySetting（可选，留空则按 BJDM 自动生成）</label>
+        <textarea id="test-query-setting" placeholder='[{"name":"BJDM","value":"B260714","linkOpt":"AND","builder":"equal"}]'></textarea>
         <pre id="test-out">（接口自测结果）</pre>
       </div>
     </section>
@@ -876,12 +820,16 @@ function applyLoginResult(r){
 async function startLogin(force){show($('overview-msg'),'登录中，请稍候…','');show($('login-msg'),'登录中，请稍候（自动识别滑块验证码，约 3~15 秒）…','');const r=await post('/admin/api/login',{force:!!force});show($('overview-msg'),r&&r.status==='ok'?'登录成功':'见「登录调试」页结果',r&&r.status==='ok'?'ok':'');applyLoginResult(r);}
 async function submitMfa(){const code=$('mfa-code').value.trim();if(!code){show($('login-msg'),'请输入验证码','err');return;}const r=await post('/admin/api/mfa',{code});$('mfa-code').value='';applyLoginResult(r);}
 async function resendMfa(){const r=await post('/admin/api/mfa/resend',{});show($('login-msg'),r.ok?'验证码已重新发送':'重发失败：'+(r.error||''),r.ok?'ok':'err');}
-async function testRoles(){const r=await api('/admin/api/test/roles');$('test-out').textContent=JSON.stringify(r,null,2);}
-async function testMenu(){const r=await api('/admin/api/test/menu');$('test-out').textContent=JSON.stringify(r,null,2);}
-async function testCqztDic(){const r=await api('/admin/api/test/getCqztDic');$('test-out').textContent=JSON.stringify(r,null,2);}
-async function testCqztlxDic(){const q=new URLSearchParams({CQZT:$('test-cqzt').value||''});const r=await api('/admin/api/test/getCqztlxDic?'+q);$('test-out').textContent=JSON.stringify(r,null,2);}
-async function testStudents(){const q=new URLSearchParams({SEARCHKEY:$('test-searchkey').value,pageNumber:$('test-page-number').value||1,pageSize:$('test-page-size').value||10,CQZT:$('test-cqzt').value,CQZTLX:$('test-cqztlx').value});const r=await api('/admin/api/test/students?'+q);$('test-out').textContent=JSON.stringify(r,null,2);}
-async function testCall(){let data={};try{data=JSON.parse($('test-data').value||'{}');}catch(e){$('test-out').textContent='data JSON 解析失败: '+e;return;}const r=await post('/admin/api/test/call',{path:$('test-path').value.trim(),data});$('test-out').textContent=JSON.stringify(r,null,2);}
+async function testCqztbg(){
+  const q=new URLSearchParams({
+    BJDM:$('test-bjdm').value.trim(),
+    pageNumber:$('test-page-number').value||1,
+    pageSize:$('test-page-size').value||10,
+    querySetting:$('test-query-setting').value.trim()
+  });
+  const r=await api('/admin/api/test/cqztbg?'+q);
+  $('test-out').textContent=JSON.stringify(r,null,2);
+}
 async function createUser(){
   const body={username:$('new-username').value.trim(),password:$('new-password').value,role:$('new-role').value,
               cas_username:$('new-cas-username').value.trim(),cas_password:$('new-cas-password').value};

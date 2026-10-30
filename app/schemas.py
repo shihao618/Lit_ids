@@ -17,12 +17,6 @@ class LoginIn(BaseModel):
     )
 
 
-class GenericCallIn(BaseModel):
-    path: str = Field(..., description="xsfw 系统内接口路径",
-                      examples=["/xsfw/sys/swmzncqapp/modules/sjkb/getSsgqStudent.do"])
-    data: dict[str, Any] = Field(default_factory=dict, description="WIS 接口 data 参数（JSON 对象）")
-
-
 class Envelope(BaseModel):
     """统一响应信封."""
 
@@ -113,3 +107,13 @@ class SystemSettingsIn(BaseModel):
     session_refresh_interval: int | None = Field(None, ge=0, description="会话保活间隔（秒），0=关闭")
     auto_login_on_start: bool | None = Field(None, description="启动时自动登录（需重启容器）")
 
+
+
+class CqztbgIn(BaseModel):
+    """智能查寝 cqztbg.do 参数（官方字段名）."""
+
+    BJDM: str = Field("", description="班级代码，如 B260714")
+    pageSize: int = Field(10, ge=1, le=200, description="每页条数（官方 pageSize）")
+    pageNumber: int = Field(1, ge=1, description="页码（官方 pageNumber）")
+    querySetting: str | None = Field(
+        None, description="筛选条件 JSON 字符串（官方 querySetting）；不传则按 BJDM 自动生成")

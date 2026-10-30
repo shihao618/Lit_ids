@@ -33,15 +33,10 @@ class FakeXsfw:
     def menu(self):
         return [{"GNMC": "数据看板"}]
 
-    def get_ssgq_students(self, searchkey="", page_number=1, page_size=10,
-                          cqzt="", cqztlx="", role=None):
-        return {"code": "0", "msg": "成功", "data": [{"XSXM": "张三", "XH": "B26071401"}]}
-
-    def get_cqzt_dic(self):
-        return {"code": "0", "msg": "成功", "data": [{"DM": "1", "MC": "未归寝"}]}
-
-    def get_cqztlx_dic(self, cqzt=""):
-        return {"code": "0", "msg": "成功", "data": [{"DM": "21", "MC": "正常归寝"}]}
+    def get_cqztbg(self, bjdm="", page_number=1, page_size=10, query_setting=None, role=None):
+        return {"code": "0", "datas": {"cqztbg": {
+            "totalSize": 1, "pageSize": page_size, "pageNumber": page_number,
+            "rows": [{"XH": "B2607xxxx", "XM": "示例同学", "BJDM": bjdm}]}}}
 
     def call(self, path, data=None):
         return {"code": "0", "msg": "成功", "data": []}
@@ -113,10 +108,10 @@ def test_admin_api_key_regenerate():
         r = c.post("/admin/api/apikey/regenerate").json()
         assert r["ok"] is True and r["api_key"] and r["api_key"] != old_key
         # 旧 key 立即失效，新 key 可用
-        assert c.get("/api/v1/xsfw/sjkb/getCqztDic",
-                     headers={"X-API-Key": old_key}).status_code == 401
-        assert c.get("/api/v1/xsfw/sjkb/getCqztDic",
-                     headers={"X-API-Key": r["api_key"]}).status_code == 200
+        assert c.post("/api/v1/xsfw/sjkb/cqztbg", json={},
+                      headers={"X-API-Key": old_key}).status_code == 401
+        assert c.post("/api/v1/xsfw/sjkb/cqztbg", json={},
+                      headers={"X-API-Key": r["api_key"]}).status_code == 200
 
 
 def test_create_user_and_isolated_login():
@@ -180,10 +175,10 @@ def test_user_configures_own_cas_and_admin_reset():
         # 普通用户的 key 也能调用接口（Fake 上游，仅验证鉴权隔离）
         with TestClient(app) as user_c:
             _login(user_c, "studentB", "newpass-123")
-            assert user_c.get("/api/v1/xsfw/sjkb/ssgq/students",
-                              headers={"X-API-Key": user["api_key"]}).status_code == 401
-            assert user_c.get("/api/v1/xsfw/sjkb/ssgq/students",
-                              headers={"X-API-Key": r["api_key"]}).status_code == 200
+            assert user_c.post("/api/v1/xsfw/sjkb/cqztbg", json={},
+                               headers={"X-API-Key": user["api_key"]}).status_code == 401
+            assert user_c.post("/api/v1/xsfw/sjkb/cqztbg", json={},
+                               headers={"X-API-Key": r["api_key"]}).status_code == 200
 
 
 def test_delete_user_and_self_protection():
@@ -206,15 +201,9 @@ def test_delete_user_and_self_protection():
 def test_admin_interface_selftest():
     with _client() as c:
         _login(c)
-        assert c.get("/admin/api/test/roles").json()["ok"] is True
-        r = c.get("/admin/api/test/students?SEARCHKEY=&pageNumber=1&pageSize=5&CQZT=2&CQZTLX=21")
-        assert r.json()["ok"] is True and r.json()["data"]["code"] == "0"
-        assert c.get("/admin/api/test/getCqztDic").json()["ok"] is True
-        assert c.get("/admin/api/test/getCqztlxDic?CQZT=2").json()["ok"] is True
-        r = c.post("/admin/api/test/call",
-                   json={"path": "/xsfw/sys/swmzncqapp/modules/sjkb/getSsgqStudent.do",
-                         "data": {"pageNumber": 1}})
-        assert r.json()["ok"] is True
+        r = c.get("/admin/api/test/cqztbg?BJDM=B260714&pageSize=5&pageNumber=1")
+        body = r.json()
+        assert body["ok"] is True and body["data"]["code"] == "0"
 
 
 def test_admin_system_settings_and_restart(monkeypatch):
@@ -351,6 +340,6 @@ def test_admin_selftest_uses_cookie_auth():
     """后台接口自测必须走 cookie 登录用户自己的会话，不能要求 X-API-Key（旧版 401 会导致前端跳概览）."""
     with TestClient(app) as c:
         _login(c)
-        r = c.get("/admin/api/test/roles")
+        r = c.get("/admin/api/test/cqztbg?BJDM=B260714")
         assert r.status_code == 200          # 旧实现返回 401
         assert "ok" in r.json()

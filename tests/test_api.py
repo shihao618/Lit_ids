@@ -1,4 +1,4 @@
-"""API 层测试（不访问外网）：健康检查 / API Key（多用户）/ 会话 / 业务接口（mock 上游）."""
+"""API 层测试（不访问外网）：健康检查 / API Key（多用户）/ 会话 / 智能查寝接口（mock 上游）."""
 
 import os
 import sys
@@ -13,6 +13,7 @@ from app.main import app  # noqa: E402
 from app.systems.xsfw import XsfwSystem  # noqa: E402
 
 HEADERS = {"X-API-Key": "test-key"}
+CQZTBG = "/api/v1/xsfw/sjkb/cqztbg"
 
 
 class FakeXsfw(XsfwSystem):
@@ -39,27 +40,15 @@ class FakeXsfw(XsfwSystem):
     def menu(self):
         return [{"GNMC": "数据看板"}]
 
-    def get_ssgq_students(self, searchkey="", page_number=1, page_size=10,
-                          cqzt="", cqztlx="", role=None):
-        self.last_call.update({"searchkey": searchkey, "page_number": page_number,
-                               "page_size": page_size, "cqzt": cqzt,
-                               "cqztlx": cqztlx, "role": role})
-        return {"code": "0", "msg": "成功", "data": [
-            {"XSXM": "张三", "XH": "B26071401", "BJMC": "B260714",
-             "FJH": "412", "CQZT": cqzt or "1", "CQZT_DISPLAY": "未归寝"}]}
-
-    def get_cqzt_dic(self):
-        return {"code": "0", "msg": "成功", "data": [
-            {"DM": "1", "MC": "未归寝"}, {"DM": "2", "MC": "已归寝"},
-            {"DM": "3", "MC": "离校请假"}]}
-
-    def get_cqztlx_dic(self, cqzt=""):
-        self.last_call["cqztlx_dic_cqzt"] = cqzt
-        return {"code": "0", "msg": "成功", "data": [
-            {"DM": "21", "MC": "正常归寝", "CQZT": "2"}]}
-
-    def call(self, path, data=None):
-        return {"code": "0", "msg": "成功", "data": []}
+    def get_cqztbg(self, bjdm="", page_number=1, page_size=10,
+                   query_setting=None, role=None):
+        self.last_call.update({"bjdm": bjdm, "page_number": page_number,
+                               "page_size": page_size,
+                               "query_setting": query_setting, "role": role})
+        return {"code": "0", "datas": {"cqztbg": {
+            "totalSize": 1, "pageSize": page_size, "pageNumber": page_number,
+            "rows": [{"XH": "B2607xxxx", "XM": "示例同学", "BJDM": bjdm,
+                      "CQZT": "2", "CQZT_DISPLAY": "已归寝"}]}}}
 
 
 def _client() -> TestClient:
@@ -71,6 +60,7 @@ def teardown_function():
     app.dependency_overrides.clear()
 
 
+# ---------------------------------------------------------------- 基础
 def test_healthz():
     with TestClient(app) as c:
         r = c.get("/healthz")
@@ -94,8 +84,9 @@ def test_root_info():
         assert r.status_code == 200
         assert "text/html" in r.headers["content-type"]
         assert "接口文档" in r.text
-        assert "/api/v1/xsfw/sjkb/ssgq/students" in r.text
-        assert "SEARCHKEY" in r.text
+        assert CQZTBG in r.text
+        assert "智能查寝" in r.text
+        assert "BJDM" in r.text
         # 页面不允许泄露任何密钥
         assert "test-key" not in r.text
         assert "test-admin" not in r.text
@@ -109,6 +100,7 @@ def test_meta_json():
         assert body["docs"] == "/"
         assert body["swagger"] == "/docs"
         assert body["admin"] == "/admin"
+        assert any(CQZTBG in e for e in body["endpoints"])
 
 
 def test_api_key_required():
@@ -116,6 +108,7 @@ def test_api_key_required():
         assert c.get("/api/v1/auth/status").status_code == 401
         assert c.get("/api/v1/auth/status", headers={"X-API-Key": "wrong"}).status_code == 401
         assert c.get("/api/v1/auth/status", headers=HEADERS).status_code == 200
+        assert c.post(CQZTBG, json={}).status_code == 401
 
 
 def test_auth_status_and_login_without_cas_credentials():
@@ -131,80 +124,51 @@ def test_auth_status_and_login_without_cas_credentials():
         assert r.json()["code"] == "SESSION_ERROR"
 
 
-# ---------------------------------------------------------------- 学生归寝（官方参数/返回）
-def test_ssgq_students_official_params():
+# ---------------------------------------------------------------- 智能查寝 cqztbg.do
+def test_cqztbg_official_params():
     fake = FakeXsfw()
     app.dependency_overrides[get_xsfw] = lambda: fake
     with TestClient(app) as c:
-        r = c.get("/api/v1/xsfw/sjkb/ssgq/students", headers=HEADERS,
-                  params={"SEARCHKEY": "张三", "pageNumber": 2, "pageSize": 50,
-                          "CQZT": "2", "CQZTLX": "21"})
+        r = c.post(CQZTBG, headers=HEADERS, json={
+            "BJDM": "B260714", "pageSize": 50, "pageNumber": 2,
+            "querySetting": '[{"name":"BJDM","value":"B260714","linkOpt":"AND","builder":"equal"}]'})
         assert r.status_code == 200
         body = r.json()
-        assert body["code"] == "0" and body["msg"] == "成功"
-        assert body["data"][0]["XSXM"] == "张三"
-        assert fake.last_call["searchkey"] == "张三"
+        assert body["code"] == "0"
+        assert body["datas"]["cqztbg"]["pageSize"] == 50
+        assert fake.last_call["bjdm"] == "B260714"
         assert fake.last_call["page_number"] == 2
         assert fake.last_call["page_size"] == 50
-        assert fake.last_call["cqzt"] == "2"
-        assert fake.last_call["cqztlx"] == "21"
+        assert "linkOpt" in fake.last_call["query_setting"]
 
 
-def test_ssgq_students_default_params():
+def test_cqztbg_default_params():
     fake = FakeXsfw()
     app.dependency_overrides[get_xsfw] = lambda: fake
     with TestClient(app) as c:
-        r = c.get("/api/v1/xsfw/sjkb/ssgq/students", headers=HEADERS)
+        r = c.post(CQZTBG, headers=HEADERS, json={})
         assert r.status_code == 200
-        assert r.json()["code"] == "0"
+        assert fake.last_call["bjdm"] == ""
         assert fake.last_call["page_number"] == 1
         assert fake.last_call["page_size"] == 10
-        assert fake.last_call["cqzt"] == ""
-        assert fake.last_call["cqztlx"] == ""
+        assert fake.last_call["query_setting"] is None
 
 
-def test_ssgq_students_validation():
+def test_cqztbg_validation():
     with _client() as c:
-        assert c.get("/api/v1/xsfw/sjkb/ssgq/students", headers=HEADERS,
-                     params={"pageSize": 500}).status_code == 422
-        assert c.get("/api/v1/xsfw/sjkb/ssgq/students", headers=HEADERS,
-                     params={"pageNumber": 0}).status_code == 422
+        assert c.post(CQZTBG, headers=HEADERS, json={"pageSize": 500}).status_code == 422
+        assert c.post(CQZTBG, headers=HEADERS, json={"pageNumber": 0}).status_code == 422
 
 
-def test_cqzt_dic_endpoint():
+def test_only_one_business_api():
+    """按需求只提供 cqztbg.do 一个业务接口，旧接口应全部移除."""
     with _client() as c:
-        body = c.get("/api/v1/xsfw/sjkb/getCqztDic", headers=HEADERS).json()
-        assert body["code"] == "0"
-        assert [x["DM"] for x in body["data"]] == ["1", "2", "3"]
-
-
-def test_cqztlx_dic_endpoint():
-    fake = FakeXsfw()
-    app.dependency_overrides[get_xsfw] = lambda: fake
-    with TestClient(app) as c:
-        r = c.get("/api/v1/xsfw/sjkb/getCqztlxDic", headers=HEADERS,
-                  params={"CQZT": "2"})
-        assert r.status_code == 200
-        assert r.json()["data"][0]["DM"] == "21"
-        assert fake.last_call["cqztlx_dic_cqzt"] == "2"
-
-
-def test_generic_call_valid_path():
-    with _client() as c:
-        r = c.post("/api/v1/xsfw/call", headers=HEADERS,
-                   json={"path": "/xsfw/sys/swmzncqapp/modules/sjkb/getSsgqStudent.do",
-                         "data": {"pageNumber": 1}})
-        assert r.status_code == 200
-        assert r.json()["meta"]["path"].startswith("/xsfw/sys/")
-
-
-def test_path_whitelist_blocks_ssrf():
-    import pytest
-
-    from app.systems import SystemError
-
-    for bad in ("https://evil.com/x", "/api/other", "/xsfw/sys/../../etc/passwd",
-                "/xsfw/sys/a?x=1"):
-        with pytest.raises(SystemError):
-            XsfwSystem._validate_path(bad)
-    XsfwSystem._validate_path("/xsfw/sys/swmzncqapp/modules/sjkb/getSsgqStudent.do")
+        for method, path in (
+            ("get", "/api/v1/xsfw/roles"),
+            ("get", "/api/v1/xsfw/menu"),
+            ("get", "/api/v1/xsfw/sjkb/ssgq/students"),
+            ("get", "/api/v1/xsfw/sjkb/getCqztDic"),
+            ("post", "/api/v1/xsfw/call"),
+        ):
+            resp = getattr(c, method)(path, headers=HEADERS)
+            assert resp.status_code in (404, 405), (path, resp.status_code)

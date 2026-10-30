@@ -1,9 +1,9 @@
 """业务系统适配层.
 
-每个业务系统（学工 xsfw、教务、图书馆……）实现一个 ``BaseSystem`` 子类：
+每个业务系统（智能查寝 zncqapp、教务、图书馆……）实现一个 ``BaseSystem`` 子类：
   * 负责用 CAS 会话完成 SSO；
   * 负责维护该系统自身的会话/角色上下文；
-  * 对外暴露语义化的方法（如 get_ssgq_students）。
+  * 对外暴露语义化的业务方法（如 get_cqztbg）。
 
 新增系统示例::
 
@@ -11,7 +11,7 @@
         key = "new"
         name = "新业务系统"
         def ensure_session(self, force=False): ...
-        def call(self, path, data): ...
+        def get_xxx(self, ...): ...
 """
 
 from __future__ import annotations
@@ -55,10 +55,6 @@ class BaseSystem(ABC):
     @abstractmethod
     def ensure_session(self, force: bool = False) -> None:
         """确保该系统已完成 SSO / 角色初始化；失败抛 SystemError."""
-
-    @abstractmethod
-    def call(self, path: str, data: dict | None = None) -> dict:
-        """调用该系统的一个接口（path 为系统内相对路径）."""
 
     def status(self) -> dict:
         return {"system": self.key, "name": self.name}
