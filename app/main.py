@@ -135,12 +135,12 @@ def create_app() -> FastAPI:
     )
     app.state.settings = settings
 
-    from .routers import admin, auth, docs, health, lljw, xsfw
+    from .routers import admin, auth, docs, dorm, health, lljw
 
     app.include_router(docs.router)      # 前台接口文档（GET /）
     app.include_router(health.router)
     app.include_router(auth.router)
-    app.include_router(xsfw.router)
+    app.include_router(dorm.router)
     app.include_router(lljw.router)
     app.include_router(admin.router)
 
@@ -185,7 +185,7 @@ def create_app() -> FastAPI:
                         "GET  /admin                      后台菜单式调试界面（多用户）",
                 "GET  /api/v1/auth/status         当前 API Key 用户的会话状态",
                 "POST /api/v1/auth/login          登录当前 API Key 用户的统一认证",
-                "POST /api/v1/xsfw/sjkb/cqztbg",
+                "POST /api/v1/dorm/check-records",
                 "POST /api/v1/lljw/xsgrkb/getCalendarWeekDatas",
             ],
         }

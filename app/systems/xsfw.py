@@ -1,17 +1,13 @@
 """智能查寝（xsfw.sec.lit.edu.cn / WIS 移动平台 zncqapp）适配器.
 
-已验证流程（2026-10 实测）:
-  1. CAS SSO:  GET https://ids.lit.edu.cn/authserver/login?service=<智能查寝首页>
-                -> 302 到 /xsfw/sys/zncqapp/*default/index.do?ticket=ST-xxx -> 下发 JSESSIONID/_WEU/route
-  2. 选择角色:  POST /xsfw/sys/swpubapp/NewMobileAPIController/getUserRoles.do   (data={"APPID":...})
-                POST /xsfw/sys/swpubapp/NewMobileAPIController/setAppRole.do
-                没选角色时 /xsfw/sys/zncqapp/modules/** 全部 403
-  3. 业务接口:  POST /xsfw/sys/zncqapp/modules/sjkb/cqztbg.do
-                body: querySetting=<JSON数组>&BJDM=B260714&pageSize=10&pageNumber=1
-                返回: {"code":"0","datas":{"cqztbg":{"totalSize":39,"pageSize":10,
-                        "pageNumber":1,"rows":[...]}}}
+对外提供**自有契约** ``check_records``：
+  * 请求只有：班级、查寝状态、查寝状态类型；
+  * 内部自动组装官方 ``querySetting`` 并分页拉全；
+  * 返回字段全部映射成易读名称/中文枚举（不再暴露官方原始字段）。
 
-注意：zncqapp 接口的参数是平铺表单字段（不是 data=<JSON>）。
+内部仍调用官方接口 ``POST /xsfw/sys/zncqapp/modules/sjkb/cqztbg.do``：
+  body: querySetting=<JSON数组>&pageSize=200&pageNumber=N
+  返回: {"code":"0","datas":{"cqztbg":{"totalSize":39,"rows":[...]}}}
 """
 
 from __future__ import annotations
@@ -27,6 +23,44 @@ from .base import BaseSystem, SystemError
 
 log = logging.getLogger(__name__)
 
+#: 对外枚举 ↔ 官方 CQZT（查寝状态）
+STATUS_OPTIONS: dict[str, tuple[str, str]] = {
+    "not_returned": ("1", "未归寝"),
+    "returned": ("2", "已归寝"),
+    "leave": ("3", "离校请假"),
+}
+
+#: 对外枚举 ↔ 官方 CQZTLX（查寝状态类型）；leave 仅随「离校请假」状态出现
+TYPE_OPTIONS: dict[str, tuple[str, str]] = {
+    "unreachable": ("11", "未联系上"),
+    "reported": ("12", "已报备"),
+    "normal": ("21", "正常归寝"),
+    "late": ("22", "晚归"),
+    "leave": ("31", "离校请假"),
+}
+
+
+def _build_lookup(options: dict[str, tuple[str, str]]) -> dict[str, tuple[str, str]]:
+    """英文枚举 / 官方数字代码 / 中文名称 都接受."""
+    lookup: dict[str, tuple[str, str]] = {}
+    for key, item in options.items():
+        lookup[key] = item
+        lookup[item[0]] = item
+        lookup[item[1]] = item
+    return lookup
+
+
+STATUS_LOOKUP = _build_lookup(STATUS_OPTIONS)
+TYPE_LOOKUP = _build_lookup(TYPE_OPTIONS)
+
+STATUS_CODE_LABEL = {code: label for code, label in STATUS_OPTIONS.values()}
+TYPE_CODE_LABEL = {code: label for code, label in TYPE_OPTIONS.values()}
+STATUS_LABEL_KEY = {label: key for key, (_code, label) in STATUS_OPTIONS.items()}
+TYPE_LABEL_KEY = {label: key for key, (_code, label) in TYPE_OPTIONS.items()}
+
+#: 单页条数（官方上限 200；对外接口自动翻页拉全）
+PAGE_SIZE = 200
+
 
 class XsfwSystem(BaseSystem):
     key = "xsfw"
@@ -38,7 +72,7 @@ class XsfwSystem(BaseSystem):
     APPNAME = "zncqapp"
     service_url = INDEX
 
-    #: 查寝表格接口路径
+    #: 官方查寝表格接口（仅内部使用，不再对外暴露）
     CQZTBG_PATH = "/xsfw/sys/zncqapp/modules/sjkb/cqztbg.do"
 
     #: 可能拥有「数据看板」权限的角色（按优先级）
@@ -67,7 +101,6 @@ class XsfwSystem(BaseSystem):
         }
 
     def _post_form(self, path: str, fields: dict, referer: str | None = None) -> tuple[int, str]:
-        """按 zncqapp 规范 POST 平铺表单字段（如 querySetting/BJDM/pageSize/pageNumber）."""
         client = self.session.client
         body = urllib.parse.urlencode(fields).encode()
         status, _final_url, raw = client.post(
@@ -77,7 +110,7 @@ class XsfwSystem(BaseSystem):
         return status, raw.decode("utf-8", "replace")
 
     def _post_data(self, path: str, obj: dict, referer: str | None = None) -> tuple[int, str]:
-        """swpubapp 的接口仍使用 WIS 规范：表单字段 data=<JSON>."""
+        """swpubapp 的接口使用 WIS 规范：表单字段 data=<JSON>."""
         client = self.session.client
         body = urllib.parse.urlencode(
             {"data": json.dumps(obj, separators=(",", ":"), ensure_ascii=False)}).encode()
@@ -110,7 +143,7 @@ class XsfwSystem(BaseSystem):
 
     # ------------------------------------------------------------------ 会话 / 角色
     def ensure_session(self, force: bool = False) -> None:
-        """确保 CAS 会话 + 智能查寝 SSO + 角色上下文就绪."""
+        """确保 CAS 会话 + 智能查寝 SSO 就绪."""
         with self.session.lock:
             self.session.ensure_login()
             if self._generation != self.session.generation:
@@ -123,7 +156,6 @@ class XsfwSystem(BaseSystem):
                 return
             client = self.session.client
 
-            # 1) CAS SSO
             cas_url = L.BASE + "/authserver/login?service=" + urllib.parse.quote(self.INDEX, safe="")
             status, final_url, raw = client.get(
                 cas_url, headers={"User-Agent": L.UA,
@@ -133,7 +165,6 @@ class XsfwSystem(BaseSystem):
                 raise SystemError("CAS SSO 到智能查寝失败（可能 CAS 会话已失效）",
                                   code="SSO_FAILED", http_status=502,
                                   hint=text[:160])
-            # 2) 打开应用首页，建立 xsfw 会话
             client.get(self.INDEX, headers={"User-Agent": L.UA, "Accept": "text/html,*/*"})
 
             self._sso_ready = True
@@ -203,58 +234,116 @@ class XsfwSystem(BaseSystem):
     def menu(self) -> list[dict]:
         return [dict(m) for m in self._menu]
 
-    # ------------------------------------------------------------------ 业务接口
+    # ------------------------------------------------------------------ 自有业务接口
     @staticmethod
-    def build_query_setting(filters: dict[str, str] | None = None) -> str:
-        """按浏览器抓包格式生成 querySetting（数组元素：name/value/linkOpt/builder）."""
-        items = []
-        for name, value in (filters or {}).items():
-            if value not in (None, ""):
-                items.append({"name": name, "value": str(value),
-                              "linkOpt": "AND", "builder": "equal"})
+    def _build_query_setting(filters: dict[str, str]) -> str:
+        items = [{"name": name, "value": str(value),
+                  "linkOpt": "AND", "builder": "equal"}
+                 for name, value in filters.items() if value not in (None, "")]
         return json.dumps(items, separators=(",", ":"), ensure_ascii=False)
 
-    def get_cqztbg(self, bjdm: str = "", page_number: int = 1, page_size: int = 10,
-                   query_setting: str | None = None, cqzt: str = "", cqztlx: str = "",
-                   dwdm: str = "", gzxs: str = "", role: str | None = None) -> dict:
-        """智能查寝-查寝状态表格（官方 cqztbg.do），返回上游原始响应.
+    @staticmethod
+    def _resolve_choice(value: str, lookup: dict[str, tuple[str, str]],
+                        field: str, options: dict[str, tuple[str, str]]) -> tuple[str, str]:
+        text = (value or "").strip()
+        if not text:
+            return "", ""
+        hit = lookup.get(text) or lookup.get(text.lower())
+        if hit:
+            return hit
+        allowed = ", ".join("%s(%s)" % (key, label) for key, (_code, label) in options.items())
+        raise SystemError("%s 无效: %s" % (field, text), code="BAD_PARAMS",
+                          http_status=422, hint="可选值: " + allowed)
 
-        说明：服务端实际按 querySetting 过滤；直传的 BJDM/CQZT/CQZTLX/DWDM/GZXS
-        在抓包中会出现，但实测不生效，因此网关在不传 querySetting 时会把它们
-        合并成 querySetting（AND / equal）。
-        """
-        filters = {"BJDM": bjdm, "DWDM": dwdm, "CQZT": cqzt,
-                   "CQZTLX": cqztlx, "GZXS": gzxs}
-        fields = {
-            "querySetting": query_setting or self.build_query_setting(filters),
-            "BJDM": bjdm,
-            "pageSize": str(page_size),
-            "pageNumber": str(page_number),
+    @classmethod
+    def _map_student(cls, row: dict) -> dict:
+        """官方行 → 易读字段（枚举同时给出 code 和中文 label）."""
+        status_code = str(row.get("CQZT") or "")
+        status_label = str(row.get("CQZT_DISPLAY") or STATUS_CODE_LABEL.get(status_code) or status_code)
+        type_code = str(row.get("CQZTLX") or "")
+        type_label = str(row.get("CQZTLX_DISPLAY") or TYPE_CODE_LABEL.get(type_code) or type_code)
+        return {
+            "studentId": row.get("XH") or row.get("XSBH") or "",
+            "name": row.get("XM") or "",
+            "classCode": row.get("BJDM") or "",
+            "className": row.get("BJDM_DISPLAY") or row.get("BJDM") or "",
+            "collegeName": row.get("DWDM_DISPLAY") or row.get("DWDM") or "",
+            "majorName": row.get("ZYDM_DISPLAY") or row.get("ZYDM") or "",
+            "dormBuilding": row.get("SSLMC") or "",
+            "roomNumber": row.get("FJH") or "",
+            "bedNumber": row.get("CWH") or "",
+            "phone": row.get("SJH") or "",
+            "checkStatus": STATUS_LABEL_KEY.get(status_label, status_code),
+            "checkStatusLabel": status_label,
+            "checkStatusType": TYPE_LABEL_KEY.get(type_label, type_code),
+            "checkStatusTypeLabel": type_label,
         }
-        for name, value in (("DWDM", dwdm), ("CQZT", cqzt),
-                            ("CQZTLX", cqztlx), ("GZXS", gzxs)):
-            if value not in (None, ""):
-                fields[name] = str(value)
-        self.set_role(role)
+
+    def _fetch_page(self, fields: dict) -> tuple[int, str]:
         try:
             status, text = self._post_form(self.CQZTBG_PATH, fields)
         except Exception as e:  # noqa: BLE001
             raise SystemError("调用智能查寝接口失败: %s" % e,
                               code="UPSTREAM_ERROR", http_status=502) from e
-        # 会话失效时自动重建一次
         if status == 401 or "Not login" in text:
             log.warning("智能查寝会话失效，重建 SSO 后重试一次")
             self._sso_ready = False
             self.ensure_session(force=True)
-            self.set_role(self._role.get("ROLENAME") if self._role else None)
+            self.set_role(None)
             status, text = self._post_form(self.CQZTBG_PATH, fields)
-        try:
-            return self._parse_json(status, text, "cqztbg.do")
-        except SystemError as e:
-            if e.code == "FORBIDDEN" and role is None:
-                preferred = self._choose_role(None)
-                if not self._role or preferred.get("ROLEID") != self._role.get("ROLEID"):
-                    self.set_role(preferred.get("ROLENAME"))
-                    return self._parse_json(*self._post_form(self.CQZTBG_PATH, fields),
-                                            "cqztbg.do")
-            raise
+        return status, text
+
+    def check_records(self, class_code: str = "", check_status: str = "",
+                      check_status_type: str = "") -> dict:
+        """智能查寝-查寝记录（自有参数/易读返回），自动分页拉全.
+
+        :param class_code: 班级代码，如 B260714（空=当前账号可见范围）
+        :param check_status: not_returned/returned/leave（也接受中文/官方数字）
+        :param check_status_type: unreachable/reported/normal/late（也接受中文/官方数字）
+        """
+        status_code, _status_label = self._resolve_choice(
+            check_status, STATUS_LOOKUP, "checkStatus", STATUS_OPTIONS)
+        type_code, _type_label = self._resolve_choice(
+            check_status_type, TYPE_LOOKUP, "checkStatusType", TYPE_OPTIONS)
+        class_code = (class_code or "").strip()
+
+        filters: dict[str, str] = {}
+        if class_code:
+            filters["BJDM"] = class_code
+        if status_code:
+            filters["CQZT"] = status_code
+        if type_code:
+            filters["CQZTLX"] = type_code
+        query_setting = self._build_query_setting(filters)
+
+        with self.session.lock:
+            self.set_role(None)
+            items: list[dict] = []
+            total = 0
+            page = 1
+            while True:
+                fields = {
+                    "querySetting": query_setting,
+                    "pageSize": str(PAGE_SIZE),
+                    "pageNumber": str(page),
+                }
+                status, text = self._fetch_page(fields)
+                data = self._parse_json(status, text, "cqztbg.do")
+                if str(data.get("code")) not in ("0", "200"):
+                    raise SystemError("查询查寝记录失败: %s" % data.get("msg"),
+                                      code=data.get("code"), http_status=502)
+                table = (data.get("datas") or {}).get("cqztbg") or {}
+                try:
+                    total = int(table.get("totalSize") or 0)
+                except (TypeError, ValueError):
+                    total = 0
+                rows = table.get("rows") or []
+                items.extend(self._map_student(row) for row in rows if isinstance(row, dict))
+                if not rows or len(items) >= total or len(rows) < PAGE_SIZE:
+                    break
+                page += 1
+                if page > 100:  # 安全上限（200*100=2 万条）
+                    break
+
+        return {"code": 0, "msg": "ok",
+                "data": {"total": total, "items": items}}

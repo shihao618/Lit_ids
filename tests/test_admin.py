@@ -33,12 +33,13 @@ class FakeXsfw:
     def menu(self):
         return [{"GNMC": "数据看板"}]
 
-    def get_cqztbg(self, bjdm="", page_number=1, page_size=10, query_setting=None,
-                   cqzt="", cqztlx="", dwdm="", gzxs="", role=None):
-        return {"code": "0", "datas": {"cqztbg": {
-            "totalSize": 1, "pageSize": page_size, "pageNumber": page_number,
-            "rows": [{"XH": "B2607xxxx", "XM": "示例同学", "BJDM": bjdm}]}}}
-
+    def check_records(self, class_code="", check_status="", check_status_type=""):
+        return {"code": 0, "msg": "ok", "data": {
+            "total": 1,
+            "items": [{"studentId": "B2607xxxx", "name": "示例同学",
+                       "classCode": class_code, "className": "示例班级",
+                       "checkStatus": "returned", "checkStatusLabel": "已归寝",
+                       "checkStatusType": "normal", "checkStatusTypeLabel": "正常归寝"}]}}
     def call(self, path, data=None):
         return {"code": "0", "msg": "成功", "data": []}
 
@@ -116,9 +117,9 @@ def test_admin_api_key_regenerate():
         r = c.post("/admin/api/apikey/regenerate").json()
         assert r["ok"] is True and r["api_key"] and r["api_key"] != old_key
         # 旧 key 立即失效，新 key 可用
-        assert c.post("/api/v1/xsfw/sjkb/cqztbg", json={},
+        assert c.post("/api/v1/dorm/check-records", json={},
                       headers={"X-API-Key": old_key}).status_code == 401
-        assert c.post("/api/v1/xsfw/sjkb/cqztbg", json={},
+        assert c.post("/api/v1/dorm/check-records", json={},
                       headers={"X-API-Key": r["api_key"]}).status_code == 200
 
 
@@ -183,9 +184,9 @@ def test_user_configures_own_cas_and_admin_reset():
         # 普通用户的 key 也能调用接口（Fake 上游，仅验证鉴权隔离）
         with TestClient(app) as user_c:
             _login(user_c, "studentB", "newpass-123")
-            assert user_c.post("/api/v1/xsfw/sjkb/cqztbg", json={},
+            assert user_c.post("/api/v1/dorm/check-records", json={},
                                headers={"X-API-Key": user["api_key"]}).status_code == 401
-            assert user_c.post("/api/v1/xsfw/sjkb/cqztbg", json={},
+            assert user_c.post("/api/v1/dorm/check-records", json={},
                                headers={"X-API-Key": r["api_key"]}).status_code == 200
 
 
@@ -209,9 +210,9 @@ def test_delete_user_and_self_protection():
 def test_admin_interface_selftest():
     with _client() as c:
         _login(c)
-        r = c.get("/admin/api/test/cqztbg?BJDM=B260714&pageSize=5&pageNumber=1")
+        r = c.get("/admin/api/test/check-records?classCode=B260714")
         body = r.json()
-        assert body["ok"] is True and body["data"]["code"] == "0"
+        assert body["ok"] is True and body["data"]["code"] == 0
 
 
 def test_admin_calendar_selftest():
@@ -362,7 +363,7 @@ def test_admin_selftest_uses_cookie_auth():
     """后台接口自测必须走 cookie 登录用户自己的会话，不能要求 X-API-Key（否则前端会跳概览）. """
     with TestClient(app) as c:
         _login(c)
-        r = c.get("/admin/api/test/cqztbg?BJDM=B260714")
+        r = c.get("/admin/api/test/check-records?classCode=B260714")
         assert r.status_code == 200
         assert "ok" in r.json()
 

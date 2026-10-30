@@ -59,47 +59,32 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
             "zc": "7", "xnxqdm": "202601", "xq": "1",
             "kkxqdm": "2", "kcdm": "000000", "pkrs": 100}]},
     },
-    ("POST", "/api/v1/xsfw/sjkb/cqztbg"): {
-        "request": {
-            "BJDM": "B260714",
-            "pageSize": 10,
-            "pageNumber": 1,
-            "querySetting": ('[{"name":"BJDM","value":"B260714",'
-                             '"linkOpt":"AND","builder":"equal"}]'),
-        },
-        "response": {"code": "0", "datas": {"cqztbg": {
-            "totalSize": 39, "pageSize": 10, "pageNumber": 1,
-            "rows": [{"XH": "B2607xxxx", "XM": "示例同学", "BJDM": "B260714",
-                      "FJMC": "218", "CWH": "2", "SSLMC": "xx学生公寓",
-                      "CQZT": "2", "CQZT_DISPLAY": "已归寝",
-                      "CQZTLX": "21", "CQZTLX_DISPLAY": "正常归寝"}]}}},
+    ("POST", "/api/v1/dorm/check-records"): {
+        "request": {"classCode": "B260714",
+                    "checkStatus": "not_returned",
+                    "checkStatusType": "unreachable"},
+        "response": {"code": 0, "msg": "ok", "data": {
+            "total": 39,
+            "items": [{
+                "studentId": "B2607xxxx",
+                "name": "示例同学",
+                "classCode": "B260714",
+                "className": "智科(专升本)B260714",
+                "collegeName": "人工智能学院/未来技术学院",
+                "majorName": "智能科学与技术",
+                "dormBuilding": "xx学生公寓",
+                "roomNumber": "218",
+                "bedNumber": "2",
+                "phone": "138****0000",
+                "checkStatus": "returned",
+                "checkStatusLabel": "已归寝",
+                "checkStatusType": "normal",
+                "checkStatusTypeLabel": "正常归寝",
+            }]}},
     },
 }
 
 TAG_ORDER = ["认证/会话", "智能查寝", "教务系统", "元信息"]
-
-#: 请求体中的「JSON 字符串子参数」说明（key=(METHOD, path), sub=参数名）
-SUB_PARAM_DOCS: dict[tuple[str, str], dict[str, dict]] = {
-    ("POST", "/api/v1/xsfw/sjkb/cqztbg"): {
-        "querySetting": {
-            "title": "querySetting 子参数（JSON 数组的每个元素）",
-            "description": ("querySetting 是 JSON 数组字符串，数组每个元素表示一个筛选条件；"
-                            "多个条件用 linkOpt 连接。实测可筛选字段：BJDM、DWDM、CQZT、CQZTLX、"
-                            "GZXS、XH、XSBH、XM、FJH、CWH、WID、RQ（其它字段以官方模型为准）。例如："),
-            "example": ('[{"name":"BJDM","value":"B260714","linkOpt":"AND","builder":"equal"},'
-                        '{"name":"CQZT","value":"2","linkOpt":"AND","builder":"equal"}]'),
-            "rows": [
-                ("name", "必填", "筛选字段名（官方字段），如 `BJDM`、`CQZT`", "BJDM"),
-                ("value", "必填", "筛选值，与 name 对应", "B260714"),
-                ("linkOpt", "可选", "多个条件之间的连接方式：`AND` / `OR`", "AND"),
-                ("builder", "可选",
-                 "匹配方式：`equal`（等于）、`include`（包含）、`less`、`lessEqual`、`moreEqual`；"
-                 "非法值会返回 Not found object", "equal"),
-            ],
-        },
-    },
-}
-
 
 # ============================================================ OpenAPI 辅助
 def _resolve_ref(spec: dict, ref: str) -> dict:
@@ -256,7 +241,6 @@ def _build_endpoints(app: Any) -> list[dict]:
                 "description": (op.get("description") or "").strip(),
                 "params": params,
                 "body_params": body_params,
-                "sub_params": SUB_PARAM_DOCS.get(key, {}),
                 "request": req_example,
                 "response": resp_example,
             })
@@ -325,19 +309,6 @@ def _render_endpoint(ep: dict, idx: int, base: str) -> str:
                              _h(bp["default"]) if bp["default"] is not None else "-",
                              _h(bp["description"])))
         parts.append("</tbody></table>")
-    for sub_name, sub in (ep.get("sub_params") or {}).items():
-        parts.append('<div class="blk-title">%s</div>' % _h(sub["title"]))
-        parts.append('<p class="desc">%s</p>' % _h(sub["description"]))
-        parts.append('<table class="params"><thead><tr><th>字段</th><th>必填</th>'
-                     '<th>说明</th><th>示例</th></tr></thead><tbody>')
-        for field, required, desc, sample in sub["rows"]:
-            parts.append("<tr><td><code>%s</code></td><td>%s</td><td>%s</td>"
-                         "<td><code>%s</code></td></tr>" % (
-                             _h(field), _h(required), _h(desc), _h(sample)))
-        parts.append("</tbody></table>")
-        if sub.get("example"):
-            parts.append('<div class="blk"><div class="blk-title">完整 querySetting 示例</div>'
-                         '<pre>%s</pre></div>' % _h(sub["example"]))
     if ep["request"] is not None:
         body = json.dumps(ep["request"], ensure_ascii=False, indent=2)
         parts.append('<div class="blk"><div class="blk-title">请求体示例 '

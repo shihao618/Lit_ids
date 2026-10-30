@@ -109,19 +109,15 @@ class SystemSettingsIn(BaseModel):
 
 
 
-class CqztbgIn(BaseModel):
-    """智能查寝 cqztbg.do 参数（官方字段名；筛选实际由 querySetting 生效）."""
+class CheckRecordsIn(BaseModel):
+    """智能查寝-查寝记录（自有参数；只保留班级/查寝状态/查寝状态类型）."""
 
-    BJDM: str = Field("", description="班级代码，如 B260714（官方参数 BJDM）")
-    DWDM: str = Field("", description="学院/单位代码（官方参数 DWDM）")
-    CQZT: str = Field("", description="查寝状态：1=未归寝、2=已归寝、3=离校请假（官方参数 CQZT）")
-    CQZTLX: str = Field("", description="查寝状态类型：11/12/21/22（官方参数 CQZTLX）")
-    GZXS: str = Field("", description="关注学生：1=只看关注学生，0=全部（官方参数 GZXS）")
-    pageSize: int = Field(10, ge=1, le=200, description="每页条数（官方 pageSize）")
-    pageNumber: int = Field(1, ge=1, description="页码（官方 pageNumber）")
-    querySetting: str | None = Field(
-        None, description=("筛选条件 JSON 字符串（官方 querySetting，优先使用）；"
-                           "不传则用上面的 BJDM/DWDM/CQZT/CQZTLX/GZXS 自动生成"))
+    classCode: str = Field("", description="班级代码，如 B260714；不传=当前账号可见范围")
+    checkStatus: str = Field(
+        "", description="查寝状态：not_returned 未归寝 / returned 已归寝 / leave 离校请假（也接受中文）")
+    checkStatusType: str = Field(
+        "", description="查寝状态类型：unreachable 未联系上 / reported 已报备 / "
+                        "normal 正常归寝 / late 晚归（也接受中文）")
 
 
 class CalendarWeekIn(BaseModel):

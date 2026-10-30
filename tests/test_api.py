@@ -13,7 +13,8 @@ from app.main import app  # noqa: E402
 from app.systems.xsfw import XsfwSystem  # noqa: E402
 
 HEADERS = {"X-API-Key": "test-key"}
-CQZTBG = "/api/v1/xsfw/sjkb/cqztbg"
+CHECK_RECORDS = "/api/v1/dorm/check-records"
+OLD_CQZTBG = "/api/v1/xsfw/sjkb/cqztbg"
 CALENDAR = "/api/v1/lljw/xsgrkb/getCalendarWeekDatas"
 
 
@@ -41,17 +42,20 @@ class FakeXsfw(XsfwSystem):
     def menu(self):
         return [{"GNMC": "数据看板"}]
 
-    def get_cqztbg(self, bjdm="", page_number=1, page_size=10,
-                   query_setting=None, cqzt="", cqztlx="", dwdm="", gzxs="", role=None):
-        self.last_call.update({"bjdm": bjdm, "page_number": page_number,
-                               "page_size": page_size, "query_setting": query_setting,
-                               "cqzt": cqzt, "cqztlx": cqztlx,
-                               "dwdm": dwdm, "gzxs": gzxs, "role": role})
-        return {"code": "0", "datas": {"cqztbg": {
-            "totalSize": 1, "pageSize": page_size, "pageNumber": page_number,
-            "rows": [{"XH": "B2607xxxx", "XM": "示例同学", "BJDM": bjdm,
-                      "CQZT": "2", "CQZT_DISPLAY": "已归寝"}]}}}
-
+    def check_records(self, class_code="", check_status="", check_status_type=""):
+        self.last_call.update({"class_code": class_code,
+                               "check_status": check_status,
+                               "check_status_type": check_status_type})
+        return {"code": 0, "msg": "ok", "data": {
+            "total": 1,
+            "items": [{
+                "studentId": "B2607xxxx", "name": "示例同学",
+                "classCode": class_code, "className": "示例班级",
+                "collegeName": "示例学院", "majorName": "示例专业",
+                "dormBuilding": "示例公寓", "roomNumber": "218",
+                "bedNumber": "2", "phone": "138****0000",
+                "checkStatus": "returned", "checkStatusLabel": "已归寝",
+                "checkStatusType": "normal", "checkStatusTypeLabel": "正常归寝"}]}}
 
 class FakeLljw:
     """模拟 LljwSystem（不访问真实教务系统）."""
@@ -100,16 +104,12 @@ def test_root_info():
         assert r.status_code == 200
         assert "text/html" in r.headers["content-type"]
         assert "接口文档" in r.text
-        assert CQZTBG in r.text
+        assert CHECK_RECORDS in r.text
         assert "智能查寝" in r.text
-        assert "BJDM" in r.text
         assert "请求体参数" in r.text
-        assert "子参数" in r.text
-        assert "linkOpt" in r.text
-        assert "builder" in r.text
-        assert "querySetting" in r.text
-        assert "lessEqual" in r.text
-        assert "CQZTLX" in r.text
+        assert "classCode" in r.text
+        assert "checkStatus" in r.text
+        assert "checkStatusType" in r.text
         # 页面不允许泄露任何密钥
         assert "test-key" not in r.text
         assert "test-admin" not in r.text
@@ -122,7 +122,7 @@ def test_meta_json():
         assert body["docs"] == "/"
         assert body["swagger"] == "/docs"
         assert body["admin"] == "/admin"
-        assert any(CQZTBG in e for e in body["endpoints"])
+        assert any(CHECK_RECORDS in e for e in body["endpoints"])
 
 
 def test_api_key_required():
@@ -130,7 +130,7 @@ def test_api_key_required():
         assert c.get("/api/v1/auth/status").status_code == 401
         assert c.get("/api/v1/auth/status", headers={"X-API-Key": "wrong"}).status_code == 401
         assert c.get("/api/v1/auth/status", headers=HEADERS).status_code == 200
-        assert c.post(CQZTBG, json={}).status_code == 401
+        assert c.post(CHECK_RECORDS, json={}).status_code == 401
 
 
 def test_auth_status_and_login_without_cas_credentials():
@@ -146,53 +146,74 @@ def test_auth_status_and_login_without_cas_credentials():
         assert r.json()["code"] == "SESSION_ERROR"
 
 
-# ---------------------------------------------------------------- 智能查寝 cqztbg.do
-def test_cqztbg_official_params():
+# ---------------------------------------------------------------- 智能查寝（自有接口）
+def test_check_records_params():
     fake = FakeXsfw()
     app.dependency_overrides[get_xsfw] = lambda: fake
     with TestClient(app) as c:
-        r = c.post(CQZTBG, headers=HEADERS, json={
-            "BJDM": "B260714", "DWDM": "07", "CQZT": "2", "CQZTLX": "21", "GZXS": "0",
-            "pageSize": 50, "pageNumber": 2,
-            "querySetting": '[{"name":"BJDM","value":"B260714","linkOpt":"AND","builder":"equal"}]'})
+        r = c.post(CHECK_RECORDS, headers=HEADERS, json={
+            "classCode": "B260714", "checkStatus": "not_returned",
+            "checkStatusType": "unreachable"})
         assert r.status_code == 200
         body = r.json()
-        assert body["code"] == "0"
-        assert body["datas"]["cqztbg"]["pageSize"] == 50
-        assert fake.last_call["bjdm"] == "B260714"
-        assert fake.last_call["page_number"] == 2
-        assert fake.last_call["page_size"] == 50
-        assert "linkOpt" in fake.last_call["query_setting"]
-        assert fake.last_call["cqzt"] == "2"
-        assert fake.last_call["cqztlx"] == "21"
-        assert fake.last_call["dwdm"] == "07"
-        assert fake.last_call["gzxs"] == "0"
+        assert body["code"] == 0
+        assert body["data"]["items"][0]["checkStatusLabel"] == "已归寝"
+        assert fake.last_call == {"class_code": "B260714",
+                                  "check_status": "not_returned",
+                                  "check_status_type": "unreachable"}
 
 
-def test_cqztbg_default_params():
+def test_check_records_default_params():
     fake = FakeXsfw()
     app.dependency_overrides[get_xsfw] = lambda: fake
     with TestClient(app) as c:
-        r = c.post(CQZTBG, headers=HEADERS, json={})
+        r = c.post(CHECK_RECORDS, headers=HEADERS, json={})
         assert r.status_code == 200
-        assert fake.last_call["bjdm"] == ""
-        assert fake.last_call["page_number"] == 1
-        assert fake.last_call["page_size"] == 10
-        assert fake.last_call["query_setting"] is None
-        assert fake.last_call["cqzt"] == ""
-        assert fake.last_call["cqztlx"] == ""
-        assert fake.last_call["dwdm"] == ""
-        assert fake.last_call["gzxs"] == ""
+        assert fake.last_call == {"class_code": "", "check_status": "",
+                                  "check_status_type": ""}
 
 
-def test_cqztbg_validation():
+def test_check_records_enum_and_mapping_unit():
+    """枚举归一化 / 易读字段映射的单元测试（不联网）."""
+    from app.systems.base import SystemError
+    from app.systems.xsfw import (STATUS_LOOKUP, STATUS_OPTIONS, TYPE_LOOKUP,
+                                  TYPE_OPTIONS, XsfwSystem)
+
+    assert XsfwSystem._resolve_choice("未归寝", STATUS_LOOKUP,
+                                      "checkStatus", STATUS_OPTIONS) == ("1", "未归寝")
+    assert XsfwSystem._resolve_choice("returned", STATUS_LOOKUP,
+                                      "checkStatus", STATUS_OPTIONS) == ("2", "已归寝")
+    assert XsfwSystem._resolve_choice("12", TYPE_LOOKUP,
+                                      "checkStatusType", TYPE_OPTIONS) == ("12", "已报备")
+    try:
+        XsfwSystem._resolve_choice("bad", STATUS_LOOKUP,
+                                   "checkStatus", STATUS_OPTIONS)
+    except SystemError as e:
+        assert e.http_status == 422
+    else:
+        raise AssertionError("invalid enum should raise SystemError")
+
+    row = {"XH": "B2607xxxx", "XM": "示例", "BJDM": "B260714",
+           "BJDM_DISPLAY": "示例班级", "DWDM_DISPLAY": "示例学院",
+           "ZYDM_DISPLAY": "示例专业", "SSLMC": "示例公寓",
+           "FJH": "218", "CWH": "2", "SJH": "138****0000",
+           "CQZT": "2", "CQZT_DISPLAY": "已归寝",
+           "CQZTLX": "21", "CQZTLX_DISPLAY": "正常归寝"}
+    mapped = XsfwSystem._map_student(row)
+    assert mapped["checkStatus"] == "returned"
+    assert mapped["checkStatusLabel"] == "已归寝"
+    assert mapped["checkStatusType"] == "normal"
+    assert mapped["roomNumber"] == "218"
+    assert mapped["phone"] == "138****0000"
+
+
+def test_old_native_endpoint_removed():
     with _client() as c:
-        assert c.post(CQZTBG, headers=HEADERS, json={"pageSize": 500}).status_code == 422
-        assert c.post(CQZTBG, headers=HEADERS, json={"pageNumber": 0}).status_code == 422
+        assert c.post(OLD_CQZTBG, headers=HEADERS, json={}).status_code == 404
 
 
 def test_only_one_business_api():
-    """只保留 cqztbg 与 calendar 两个业务接口，旧接口应全部移除."""
+    """只保留 check-records 与 calendar 两个业务接口，旧接口应全部移除."""
     with _client() as c:
         for method, path in (
             ("get", "/api/v1/xsfw/roles"),
@@ -200,6 +221,7 @@ def test_only_one_business_api():
             ("get", "/api/v1/xsfw/sjkb/ssgq/students"),
             ("get", "/api/v1/xsfw/sjkb/getCqztDic"),
             ("post", "/api/v1/xsfw/call"),
+            ("post", "/api/v1/xsfw/sjkb/cqztbg"),
         ):
             resp = getattr(c, method)(path, headers=HEADERS)
             assert resp.status_code in (404, 405), (path, resp.status_code)

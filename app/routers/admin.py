@@ -256,24 +256,16 @@ def api_logs(limit: int = Query(200, ge=1, le=500)) -> dict[str, Any]:
 
 
 # ------------------------------------------------------------ 接口自测（智能查寝）
-@api.get("/test/cqztbg", summary="自测：智能查寝-查寝状态表格（官方 cqztbg.do）")
-def test_cqztbg(
-    bjdm: str = Query("", alias="BJDM"),
-    dwdm: str = Query("", alias="DWDM"),
-    cqzt: str = Query("", alias="CQZT"),
-    cqztlx: str = Query("", alias="CQZTLX"),
-    gzxs: str = Query("", alias="GZXS"),
-    page_size: int = Query(10, alias="pageSize", ge=1, le=200),
-    page_number: int = Query(1, alias="pageNumber", ge=1),
-    query_setting: str = Query("", alias="querySetting"),
+@api.get("/test/check-records", summary="自测：智能查寝-查寝记录（自有参数/易读返回）")
+def test_check_records(
+    class_code: str = Query("", alias="classCode"),
+    check_status: str = Query("", alias="checkStatus"),
+    check_status_type: str = Query("", alias="checkStatusType"),
     system=Depends(get_admin_xsfw),
 ) -> dict[str, Any]:
     try:
-        data = system.get_cqztbg(bjdm=bjdm, page_number=page_number,
-                                 page_size=page_size,
-                                 query_setting=query_setting or None,
-                                 cqzt=cqzt, cqztlx=cqztlx,
-                                 dwdm=dwdm, gzxs=gzxs)
+        data = system.check_records(class_code=class_code, check_status=check_status,
+                                    check_status_type=check_status_type)
         return {"ok": True, "data": data}
     except (SystemError, SessionError) as e:
         return _err(e)
@@ -643,31 +635,24 @@ _DASHBOARD_TMPL = """<!doctype html>
       <div class="card">
         <h2>接口自测（智能查寝 · 使用我自己的会话）</h2>
         <div class="row">
-          <span>官方参数：</span>
-          <input id="test-bjdm" value="" placeholder="BJDM 班级代码" style="width:150px">
-          <input id="test-dwdm" value="" placeholder="DWDM" style="width:90px">
-          <input id="test-cqzt" value="" placeholder="CQZT(1/2/3)" style="width:130px">
-          <input id="test-cqztlx" value="" placeholder="CQZTLX" style="width:100px">
-          <input id="test-gzxs" value="" placeholder="GZXS" style="width:85px">
-          <input id="test-page-number" value="1" placeholder="pageNumber" style="width:100px">
-          <input id="test-page-size" value="10" placeholder="pageSize" style="width:95px">
-          <button type="button" onclick="testCqztbg()">查询</button>
+          <span>参数：</span>
+          <input id="test-class-code" value="" placeholder="classCode 班级代码" style="width:170px">
+          <select id="test-check-status" style="width:140px">
+            <option value="">全部状态</option>
+            <option value="not_returned">未归寝</option>
+            <option value="returned">已归寝</option>
+            <option value="leave">离校请假</option>
+          </select>
+          <select id="test-check-status-type" style="width:150px">
+            <option value="">全部类型</option>
+            <option value="unreachable">未联系上</option>
+            <option value="reported">已报备</option>
+            <option value="normal">正常归寝</option>
+            <option value="late">晚归</option>
+          </select>
+          <button type="button" onclick="testCheckRecords()">查询</button>
         </div>
-        <label>querySetting（可选，留空则按 BJDM 自动生成）</label>
-        <textarea id="test-query-setting" placeholder='[{"name":"BJDM","value":"B260714","linkOpt":"AND","builder":"equal"}]'></textarea>
-        <pre id="test-out">（接口自测结果）</pre>
-      </div>
-      <div class="card">
-        <h2>接口自测（教务系统 · 使用我自己的会话）</h2>
-        <div class="row">
-          <span>官方参数：</span>
-          <input id="test-xnxqdm" value="202601" placeholder="xnxqdm" style="width:110px">
-          <input id="test-zc" value="7" placeholder="zc" style="width:70px">
-          <input id="test-d1" value="2026-10-26 00:00:00" placeholder="d1" style="width:190px">
-          <input id="test-d2" value="2026-11-02 00:00:00" placeholder="d2" style="width:190px">
-          <button type="button" onclick="testCalendar()">查询</button>
-        </div>
-        <pre id="calendar-out">（接口自测结果）</pre>
+        <pre id="check-records-out">（接口自测结果）</pre>
       </div>
     </section>
 
@@ -897,19 +882,14 @@ async function testCalendar(){
   const r=await api('/admin/api/test/calendar?'+q);
   $('calendar-out').textContent=JSON.stringify(r,null,2);
 }
-async function testCqztbg(){
+async function testCheckRecords(){
   const q=new URLSearchParams({
-    BJDM:$('test-bjdm').value.trim(),
-    DWDM:$('test-dwdm').value.trim(),
-    CQZT:$('test-cqzt').value.trim(),
-    CQZTLX:$('test-cqztlx').value.trim(),
-    GZXS:$('test-gzxs').value.trim(),
-    pageNumber:$('test-page-number').value||1,
-    pageSize:$('test-page-size').value||10,
-    querySetting:$('test-query-setting').value.trim()
+    classCode:$('test-class-code').value.trim(),
+    checkStatus:$('test-check-status').value,
+    checkStatusType:$('test-check-status-type').value
   });
-  const r=await api('/admin/api/test/cqztbg?'+q);
-  $('test-out').textContent=JSON.stringify(r,null,2);
+  const r=await api('/admin/api/test/check-records?'+q);
+  $('check-records-out').textContent=JSON.stringify(r,null,2);
 }
 async function createUser(){
   const body={username:$('new-username').value.trim(),password:$('new-password').value,role:$('new-role').value,
