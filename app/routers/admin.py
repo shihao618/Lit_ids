@@ -39,7 +39,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from ..admin_auth import COOKIE_NAME, DEFAULT_TTL, get_cookie_user, make_token, require_admin_user, require_login
-from ..deps import get_admin_xsfw, get_registry
+from ..deps import get_admin_lljw, get_admin_xsfw, get_registry
 from ..logbuf import log_buffer
 from ..restart import schedule_restart
 from ..schemas import (
@@ -274,6 +274,21 @@ def test_cqztbg(
                                  query_setting=query_setting or None,
                                  cqzt=cqzt, cqztlx=cqztlx,
                                  dwdm=dwdm, gzxs=gzxs)
+        return {"ok": True, "data": data}
+    except (SystemError, SessionError) as e:
+        return _err(e)
+
+
+@api.get("/test/calendar", summary="自测：教务系统-校历周数据（官方 getCalendarWeekDatas）")
+def test_calendar(
+    xnxqdm: str = Query("202601", alias="xnxqdm"),
+    zc: int = Query(7, alias="zc", ge=1, le=60),
+    d1: str = Query("2026-10-26 00:00:00", alias="d1"),
+    d2: str = Query("2026-11-02 00:00:00", alias="d2"),
+    system=Depends(get_admin_lljw),
+) -> dict[str, Any]:
+    try:
+        data = system.get_calendar_week_datas(xnxqdm=xnxqdm, zc=zc, d1=d1, d2=d2)
         return {"ok": True, "data": data}
     except (SystemError, SessionError) as e:
         return _err(e)
@@ -642,6 +657,18 @@ _DASHBOARD_TMPL = """<!doctype html>
         <textarea id="test-query-setting" placeholder='[{"name":"BJDM","value":"B260714","linkOpt":"AND","builder":"equal"}]'></textarea>
         <pre id="test-out">（接口自测结果）</pre>
       </div>
+      <div class="card">
+        <h2>接口自测（教务系统 · 使用我自己的会话）</h2>
+        <div class="row">
+          <span>官方参数：</span>
+          <input id="test-xnxqdm" value="202601" placeholder="xnxqdm" style="width:110px">
+          <input id="test-zc" value="7" placeholder="zc" style="width:70px">
+          <input id="test-d1" value="2026-10-26 00:00:00" placeholder="d1" style="width:190px">
+          <input id="test-d2" value="2026-11-02 00:00:00" placeholder="d2" style="width:190px">
+          <button type="button" onclick="testCalendar()">查询</button>
+        </div>
+        <pre id="calendar-out">（接口自测结果）</pre>
+      </div>
     </section>
 
     <!-- 用户管理（管理员） -->
@@ -860,6 +887,16 @@ function applyLoginResult(r){
 async function startLogin(force){show($('overview-msg'),'登录中，请稍候…','');show($('login-msg'),'登录中，请稍候（自动识别滑块验证码，约 3~15 秒）…','');const r=await post('/admin/api/login',{force:!!force});show($('overview-msg'),r&&r.status==='ok'?'登录成功':'见「登录调试」页结果',r&&r.status==='ok'?'ok':'');applyLoginResult(r);}
 async function submitMfa(){const code=$('mfa-code').value.trim();if(!code){show($('login-msg'),'请输入验证码','err');return;}const r=await post('/admin/api/mfa',{code});$('mfa-code').value='';applyLoginResult(r);}
 async function resendMfa(){const r=await post('/admin/api/mfa/resend',{});show($('login-msg'),r.ok?'验证码已重新发送':'重发失败：'+(r.error||''),r.ok?'ok':'err');}
+async function testCalendar(){
+  const q=new URLSearchParams({
+    xnxqdm:$('test-xnxqdm').value.trim()||'202601',
+    zc:$('test-zc').value||7,
+    d1:$('test-d1').value.trim(),
+    d2:$('test-d2').value.trim()
+  });
+  const r=await api('/admin/api/test/calendar?'+q);
+  $('calendar-out').textContent=JSON.stringify(r,null,2);
+}
 async function testCqztbg(){
   const q=new URLSearchParams({
     BJDM:$('test-bjdm').value.trim(),

@@ -190,7 +190,8 @@ fnOS 上不需要源码、不需要构建，直接用 [docker-compose.fnos.yml](
 | GET | `/healthz` / `/readyz` | 健康检查（无需鉴权） |
 | GET | `/api/v1/auth/status` | 当前 API Key 用户的 CAS 会话状态 |
 | POST | `/api/v1/auth/login` | 登录/刷新当前 API Key 用户的统一认证会话（可带 `mfa_code`） |
-| **POST** | **`/api/v1/xsfw/sjkb/cqztbg`** | **智能查寝-查寝状态表格（官方 cqztbg.do，唯一业务接口）** |
+| **POST** | **`/api/v1/xsfw/sjkb/cqztbg`** | **智能查寝-查寝状态表格（官方 cqztbg.do）** |
+| **POST** | **`/api/v1/lljw/xsgrkb/getCalendarWeekDatas`** | **教务系统-校历周数据（官方 getCalendarWeekDatas）** |
 
 ### 4.1 智能查寝-查寝状态表格（官方参数 / 官方返回）
 
@@ -242,7 +243,35 @@ curl -X POST "http://127.0.0.1:10381/api/v1/xsfw/sjkb/cqztbg" \
 
 班级管理员只能看到本班数据（B260714 当前约 39 人）；`totalSize` 为总条数，`pageNumber/pageSize` 用于分页。
 
-### 4.2 多用户与 API Key 规则
+### 4.2 教务系统-校历周数据（官方参数 / 官方返回）
+
+`POST /api/v1/lljw/xsgrkb/getCalendarWeekDatas`（JSON 请求体，字段名与官方接口一致）
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `xnxqdm` | string | 是 | 学年学期代码，如 `202601` |
+| `zc` | int | 是 | 周次，如 `7` |
+| `d1` | string | 是 | 开始日期时间，如 `2026-10-26 00:00:00` |
+| `d2` | string | 是 | 结束日期时间，如 `2026-11-02 00:00:00` |
+
+```bash
+curl -X POST "http://127.0.0.1:10381/api/v1/lljw/xsgrkb/getCalendarWeekDatas" \
+  -H "X-API-Key: <你的 Key>" -H "Content-Type: application/json" \
+  -d '{"xnxqdm":"202601","zc":7,"d1":"2026-10-26 00:00:00","d2":"2026-11-02 00:00:00"}'
+```
+
+返回官方结构（`data` 为课表数据数组）：
+
+```json
+{"code":0,"data":[{"kcmc":"示例课程","teaxms":"示例教师","jxbmc":"示例班级",
+  "jxcdmc":"XA1","qssj":"08:00:00","jssj":"09:40:00","qsrq":"2026-10-26",
+  "jsrq":"2026-10-26","zc":"7","xnxqdm":"202601","xq":"1","kkxqdm":"2"}]}
+```
+
+> 网关会用当前 API Key 用户的 CAS 会话自动 SSO 到教务系统（`https://lljw.lit.edu.cn/new/ssoLogin`）；
+> 教务系统会话失效会自动重新 SSO 一次；CAS 本身失效则返回 `503 SESSION_ERROR`。
+
+### 4.3 多用户与 API Key 规则
 
 * 后台「👤 我的账号」可查看/复制/重新生成自己的 Key；**重新生成后旧 Key 立即失效**；
 * 不同 Key 对应不同用户的统一认证会话，互不影响；
@@ -310,7 +339,7 @@ app/
   settings_store.py     后台「系统设置」存储 + 日志级别热更新
   restart.py            后台「重启容器」（SIGTERM + restart 策略）
   users.py              多用户存储（密码哈希 / API Key / 每人统一认证账号）
-  registry.py           每个用户一个 SessionManager + XsfwSystem
+  registry.py           每个用户一个 SessionManager + XsfwSystem/LljwSystem
   session.py            单用户 CAS 会话（登录/复用/MFA/持久化）
   admin_auth.py         后台登录鉴权（用户名密码 + HMAC 签名 cookie）
   deps.py               X-API-Key → 用户 → 该用户会话/系统
@@ -319,13 +348,15 @@ app/
   systems/
     base.py             BaseSystem 抽象
     xsfw.py             智能查寝适配（SSO + 角色 + cqztbg.do）
+    lljw.py             教务系统适配（SSO + getCalendarWeekDatas）
   routers/
     docs.py             前台接口文档（自动生成）
     admin.py            菜单式后台 + 后台 API
     xsfw.py             智能查寝接口路由
+    lljw.py             教务系统接口路由
     auth.py             会话状态/登录（按 API Key 用户）
     health.py           健康检查
-tests/                  离线测试（28 个）：认证核心 / 接口 / 多用户后台 / 系统设置
+tests/                  离线测试（35 个）：认证核心 / 两个业务接口 / 多用户后台 / 系统设置
 Dockerfile              python:3.12-slim-bookworm、非 root、健康检查
 docker-compose.yml      本地/服务器部署（源码构建）：数据卷 ./data:/data、env_file .env、端口 10381
 docker-compose.fnos.yml fnOS（飞牛OS）部署：直接用 GHCR 镜像，无需源码/构建
@@ -339,7 +370,7 @@ data/                   用户表、各用户 CAS 会话、系统设置（运行
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest tests -q          # 28 passed（离线，不访问校园网）
+python -m pytest tests -q          # 35 passed（离线，不访问校园网）
 uvicorn app.main:app --host 0.0.0.0 --port 10381 --reload
 ```
 

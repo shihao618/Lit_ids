@@ -8,12 +8,13 @@ from fastapi.testclient import TestClient
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from app.deps import get_xsfw  # noqa: E402
+from app.deps import get_lljw, get_xsfw  # noqa: E402
 from app.main import app  # noqa: E402
 from app.systems.xsfw import XsfwSystem  # noqa: E402
 
 HEADERS = {"X-API-Key": "test-key"}
 CQZTBG = "/api/v1/xsfw/sjkb/cqztbg"
+CALENDAR = "/api/v1/lljw/xsgrkb/getCalendarWeekDatas"
 
 
 class FakeXsfw(XsfwSystem):
@@ -52,8 +53,22 @@ class FakeXsfw(XsfwSystem):
                       "CQZT": "2", "CQZT_DISPLAY": "已归寝"}]}}}
 
 
+class FakeLljw:
+    """模拟 LljwSystem（不访问真实教务系统）."""
+
+    def __init__(self):
+        self.last_call = {}
+
+    def get_calendar_week_datas(self, xnxqdm, zc, d1, d2):
+        self.last_call.update({"xnxqdm": xnxqdm, "zc": zc, "d1": d1, "d2": d2})
+        return {"code": 0, "data": [{
+            "kcmc": "示例课程", "teaxms": "示例教师", "zc": str(zc),
+            "xnxqdm": xnxqdm, "qsrq": "2026-10-26", "jsrq": "2026-10-26"}]}
+
+
 def _client() -> TestClient:
     app.dependency_overrides[get_xsfw] = lambda: FakeXsfw()
+    app.dependency_overrides[get_lljw] = lambda: FakeLljw()
     return TestClient(app)
 
 
@@ -189,3 +204,48 @@ def test_only_one_business_api():
         ):
             resp = getattr(c, method)(path, headers=HEADERS)
             assert resp.status_code in (404, 405), (path, resp.status_code)
+
+
+# ---------------------------------------------------------------- 教务系统 校历周数据
+def test_calendar_official_params():
+    fake = FakeLljw()
+    app.dependency_overrides[get_lljw] = lambda: fake
+    with TestClient(app) as c:
+        r = c.post(CALENDAR, headers=HEADERS, json={
+            "xnxqdm": "202601", "zc": 7,
+            "d1": "2026-10-26 00:00:00", "d2": "2026-11-02 00:00:00"})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["code"] == 0
+        assert body["data"][0]["kcmc"] == "示例课程"
+        assert fake.last_call["xnxqdm"] == "202601"
+        assert fake.last_call["zc"] == 7
+        assert "00:00:00" in fake.last_call["d1"]
+
+
+def test_calendar_requires_api_key():
+    with TestClient(app) as c:
+        r = c.post(CALENDAR, json={"xnxqdm": "202601", "zc": 7,
+                                   "d1": "2026-10-26 00:00:00",
+                                   "d2": "2026-11-02 00:00:00"})
+        assert r.status_code == 401
+
+
+def test_calendar_validation():
+    with TestClient(app) as c:
+        assert c.post(CALENDAR, headers=HEADERS,
+                      json={"xnxqdm": "202601", "zc": 0,
+                            "d1": "2026-10-26 00:00:00",
+                            "d2": "2026-11-02 00:00:00"}).status_code == 422
+        assert c.post(CALENDAR, headers=HEADERS,
+                      json={"xnxqdm": "202601", "zc": 7}).status_code == 422
+
+
+def test_calendar_in_docs_and_meta():
+    with TestClient(app) as c:
+        docs = c.get("/")
+        assert docs.status_code == 200
+        assert "/api/v1/lljw/xsgrkb/getCalendarWeekDatas" in docs.text
+        assert "教务系统" in docs.text
+        meta = c.get("/api/v1/meta").json()
+        assert any("getCalendarWeekDatas" in e for e in meta["endpoints"])

@@ -49,6 +49,17 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
             "username": "B2607xxxx", "login_time": "2026-10-30 09:00:00",
             "final_url": "http://ids.lit.edu.cn/authserver/personal/"}},
     },
+    ("POST", "/api/v1/lljw/xsgrkb/getCalendarWeekDatas"): {
+        "request": {"xnxqdm": "202601", "zc": 7,
+                    "d1": "2026-10-26 00:00:00", "d2": "2026-11-02 00:00:00"},
+        "response": {"code": 0, "data": [{
+            "kcmc": "示例课程", "teaxms": "示例教师",
+            "jxbmc": "示例班级", "jxcdmc": "XA1",
+            "qssj": "08:00:00", "jssj": "09:40:00",
+            "qsrq": "2026-10-26", "jsrq": "2026-10-26",
+            "zc": "7", "xnxqdm": "202601", "xq": "1",
+            "kkxqdm": "2", "kcdm": "000000", "pkrs": 100}]},
+    },
     ("POST", "/api/v1/xsfw/sjkb/cqztbg"): {
         "request": {
             "BJDM": "B260714",
@@ -66,7 +77,7 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
     },
 }
 
-TAG_ORDER = ["认证/会话", "智能查寝", "元信息"]
+TAG_ORDER = ["认证/会话", "智能查寝", "教务系统", "元信息"]
 
 #: 请求体中的「JSON 字符串子参数」说明（key=(METHOD, path), sub=参数名）
 SUB_PARAM_DOCS: dict[tuple[str, str], dict[str, dict]] = {

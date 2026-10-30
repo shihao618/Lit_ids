@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from app.deps import get_admin_xsfw, get_xsfw  # noqa: E402
+from app.deps import get_admin_lljw, get_admin_xsfw, get_xsfw  # noqa: E402
 from app.main import app  # noqa: E402
 
 ADMIN_LOGIN = {"username": "admin", "password": "test-admin"}
@@ -43,10 +43,17 @@ class FakeXsfw:
         return {"code": "0", "msg": "成功", "data": []}
 
 
+class FakeLljw:
+    def get_calendar_week_datas(self, xnxqdm, zc, d1, d2):
+        return {"code": 0, "data": [{"kcmc": "示例课程", "zc": str(zc),
+                                     "xnxqdm": xnxqdm}]}
+
+
 def _client() -> TestClient:
     fake = FakeXsfw()
     app.dependency_overrides[get_xsfw] = lambda: fake
     app.dependency_overrides[get_admin_xsfw] = lambda: fake
+    app.dependency_overrides[get_admin_lljw] = lambda: FakeLljw()
     return TestClient(app)
 
 
@@ -205,6 +212,20 @@ def test_admin_interface_selftest():
         r = c.get("/admin/api/test/cqztbg?BJDM=B260714&pageSize=5&pageNumber=1")
         body = r.json()
         assert body["ok"] is True and body["data"]["code"] == "0"
+
+
+def test_admin_calendar_selftest():
+    """后台接口自测：教务系统校历周数据（使用当前登录管理员自己的会话）."""
+    with _client() as c:
+        _login(c)
+        r = c.get("/admin/api/test/calendar", params={
+            "xnxqdm": "202601", "zc": 7,
+            "d1": "2026-10-26 00:00:00", "d2": "2026-11-02 00:00:00"})
+        body = r.json()
+        assert body["ok"] is True
+        assert body["data"]["code"] == 0
+        html = c.get("/admin").text
+        assert "test-calendar" in html or "testCalendar" in html
 
 
 def test_admin_system_settings_and_restart(monkeypatch):
