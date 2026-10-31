@@ -129,7 +129,9 @@ def test_root_info():
         assert "doc-table" in r.text
         assert "@media(max-width:899px)" in r.text
         assert "__NAV__" not in r.text
-        assert "doc-nav-sub" in r.text
+        assert "doc-nav-sub" not in r.text
+        assert "智能查寝" in r.text
+        assert "课表查询" in r.text
         assert 'target="_blank"' not in r.text
         # 页面不允许泄露任何密钥
         assert "test-key" not in r.text

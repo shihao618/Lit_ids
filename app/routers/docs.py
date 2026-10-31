@@ -231,6 +231,13 @@ def _body_param_rows(op: dict, spec: dict) -> list[dict]:
     return rows
 
 
+#: 前台 API 文档只展示的业务接口（顺序即侧栏菜单顺序）
+DOC_MENU = [
+    ("智能查寝", "POST", "/api/v1/dorm/check-records"),
+    ("课表查询", "POST", "/api/v1/lljw/schedule"),
+]
+
+
 def _build_endpoints(app: Any) -> list[dict]:
     spec = app.openapi()
     groups: dict[str, list[dict]] = {}
@@ -400,7 +407,14 @@ def _render_html(app: Any, request: Request) -> str:
     app_name = runtime.get("app_name") if runtime is not None else None
     app_name = app_name or app.title
     base = str(request.base_url).rstrip("/")
-    groups = _build_endpoints(app)
+    all_groups = _build_endpoints(app)
+    by_key = {(ep["method"], ep["path"]): ep
+              for group in all_groups for ep in group["endpoints"]}
+    groups: list[dict] = []
+    for label, method, path in DOC_MENU:
+        ep = by_key.get((method, path))
+        if ep:
+            groups.append({"tag": label, "endpoints": [ep]})
     endpoints_js: list[dict] = []
     cards: list[str] = []
     nav: list[str] = []
@@ -411,11 +425,6 @@ def _render_html(app: Any, request: Request) -> str:
         cards.append(f'<section class="doc-section" id="{group_anchor}">'
                      f'<h2 class="doc-heading">{_h(group["tag"])}</h2>')
         for ep in group["endpoints"]:
-            eid = "ep-%d" % idx
-            label = ep["summary"] or ep["path"]
-            nav.append(
-                f'<a class="doc-nav-link doc-nav-sub" href="#{eid}" '
-                f'title="{_h(ep["method"] + " " + ep["path"])}">{_h(label)}</a>')
             cards.append(_render_endpoint(ep, idx, base))
             endpoints_js.append({
                 "id": idx,
@@ -478,7 +487,6 @@ a{color:inherit;text-decoration:none}
 .doc-nav-link:hover{background:#f9fafb;color:var(--text)}
 .doc-nav-link .method{flex:none;min-width:42px;padding:1px 5px;font-size:10.5px}
 .doc-nav-link .path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
-.doc-nav-sub{padding-left:24px;color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis}
 .doc-sidebar-footer{margin-top:auto;padding-top:14px}
 .doc-sidebar-footer .doc-nav-link{font-size:13px;padding:8px 10px}
 .doc-sidebar-footer .doc-nav-link span{margin-right:2px}
@@ -626,7 +634,7 @@ DOCS_TMPL = """<!doctype html>
   <main id="main" class="docs-content">
     <article class="doc-content">
       <h1 class="doc-title">__APP_NAME__ · 接口文档</h1>
-      <p class="doc-lead">多用户统一认证接口网关：每个用户拥有自己的统一认证账号、独立 CAS 会话和独立 API Key。当前业务接口：智能查寝、教务课表，另提供会话状态/登录接口。</p>
+      <p class="doc-lead">多用户统一认证接口网关：每个用户拥有自己的统一认证账号、独立 CAS 会话和独立 API Key。当前业务接口：智能查寝、课表查询。</p>
       <p class="doc-note">调用 <code class="code-inline">/api/v1/**</code> 接口需在请求头带 <code class="code-inline">X-API-Key</code>；页面本身不包含任何密钥，在线调试时只从本机浏览器读取。</p>
       <div class="doc-cards">
         <div class="doc-card"><h3 class="doc-card-title">统一响应格式</h3><p>成功：<code class="code-inline">{"code":0,"msg":"ok","data":...}</code></p><p>错误：<code class="code-inline">code</code> 为非 0，并带 <code class="code-inline">msg</code> / <code class="code-inline">hint</code>。</p></div>
