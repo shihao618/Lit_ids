@@ -271,16 +271,17 @@ def test_check_records(
         return _err(e)
 
 
-@api.get("/test/calendar", summary="自测：教务系统-校历周数据（官方 getCalendarWeekDatas）")
-def test_calendar(
-    xnxqdm: str = Query("202601", alias="xnxqdm"),
-    zc: int = Query(7, alias="zc", ge=1, le=60),
-    d1: str = Query("2026-10-26 00:00:00", alias="d1"),
-    d2: str = Query("2026-11-02 00:00:00", alias="d2"),
+@api.get("/test/schedule", summary="自测：教务系统-课表查询（自有参数/易读返回）")
+def test_schedule(
+    semester: str = Query("", alias="semester"),
+    week: str = Query("", alias="week"),
+    query: str = Query("week", alias="query"),
+    date_text: str = Query("", alias="date"),
     system=Depends(get_admin_lljw),
 ) -> dict[str, Any]:
     try:
-        data = system.get_calendar_week_datas(xnxqdm=xnxqdm, zc=zc, d1=d1, d2=d2)
+        data = system.schedule(semester=semester, week=week or None,
+                               query=query, date_text=date_text)
         return {"ok": True, "data": data}
     except (SystemError, SessionError) as e:
         return _err(e)
@@ -654,6 +655,26 @@ _DASHBOARD_TMPL = """<!doctype html>
         </div>
         <pre id="check-records-out">（接口自测结果）</pre>
       </div>
+      <div class="card">
+        <h2>接口自测（教务课表 · 使用我自己的会话）</h2>
+        <div class="row">
+          <span>参数：</span>
+          <input id="test-semester" value="" placeholder="semester（空=当前）" style="width:160px">
+          <input id="test-week" value="" placeholder="week（空=本周/all）" style="width:170px">
+          <select id="test-query" style="width:130px">
+            <option value="week">本周/指定周</option>
+            <option value="today">今天</option>
+            <option value="morning">上午</option>
+            <option value="afternoon">下午</option>
+            <option value="evening">晚上</option>
+            <option value="day">指定日期</option>
+            <option value="next">最近一节</option>
+          </select>
+          <input id="test-schedule-date" value="" placeholder="date（YYYY-MM-DD）" style="width:170px">
+          <button type="button" onclick="testSchedule()">查询</button>
+        </div>
+        <pre id="schedule-out">（接口自测结果）</pre>
+      </div>
     </section>
 
     <!-- 用户管理（管理员） -->
@@ -872,15 +893,15 @@ function applyLoginResult(r){
 async function startLogin(force){show($('overview-msg'),'登录中，请稍候…','');show($('login-msg'),'登录中，请稍候（自动识别滑块验证码，约 3~15 秒）…','');const r=await post('/admin/api/login',{force:!!force});show($('overview-msg'),r&&r.status==='ok'?'登录成功':'见「登录调试」页结果',r&&r.status==='ok'?'ok':'');applyLoginResult(r);}
 async function submitMfa(){const code=$('mfa-code').value.trim();if(!code){show($('login-msg'),'请输入验证码','err');return;}const r=await post('/admin/api/mfa',{code});$('mfa-code').value='';applyLoginResult(r);}
 async function resendMfa(){const r=await post('/admin/api/mfa/resend',{});show($('login-msg'),r.ok?'验证码已重新发送':'重发失败：'+(r.error||''),r.ok?'ok':'err');}
-async function testCalendar(){
+async function testSchedule(){
   const q=new URLSearchParams({
-    xnxqdm:$('test-xnxqdm').value.trim()||'202601',
-    zc:$('test-zc').value||7,
-    d1:$('test-d1').value.trim(),
-    d2:$('test-d2').value.trim()
+    semester:$('test-semester').value.trim(),
+    week:$('test-week').value.trim(),
+    query:$('test-query').value,
+    date:$('test-schedule-date').value.trim()
   });
-  const r=await api('/admin/api/test/calendar?'+q);
-  $('calendar-out').textContent=JSON.stringify(r,null,2);
+  const r=await api('/admin/api/test/schedule?'+q);
+  $('schedule-out').textContent=JSON.stringify(r,null,2);
 }
 async function testCheckRecords(){
   const q=new URLSearchParams({

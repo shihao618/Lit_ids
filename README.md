@@ -190,7 +190,7 @@ fnOS 上不需要源码、不需要构建，直接用 [docker-compose.fnos.yml](
 | GET | `/api/v1/auth/status` | 当前 API Key 用户的 CAS 会话状态 |
 | POST | `/api/v1/auth/login` | 登录/刷新当前 API Key 用户的统一认证会话（可带 `mfa_code`） |
 | **POST** | **`/api/v1/dorm/check-records`** | **智能查寝-查寝记录（自有参数/易读返回）** |
-| **POST** | **`/api/v1/lljw/xsgrkb/getCalendarWeekDatas`** | **教务系统-校历周数据（官方 getCalendarWeekDatas）** |
+| **POST** | **`/api/v1/lljw/schedule`** | **教务系统-课表查询（自有参数/易读返回，学期/周次可自动）** |
 
 ### 4.1 智能查寝-查寝记录（自有接口 / 易读返回）
 
@@ -239,35 +239,79 @@ curl -X POST "http://127.0.0.1:10381/api/v1/dorm/check-records" \
 
 > 不再暴露官方原始字段（`WID/GZXS/CQZT/CQZTLX/querySetting/...`）；内部由网关拼 `querySetting` 调用官方 `cqztbg.do`，并按 200 条/页自动拉全。
 
-### 4.2 教务系统-校历周数据（官方参数 / 官方返回）
+### 4.2 教务系统-课表查询（自有接口 / 易读返回）
 
-`POST /api/v1/lljw/xsgrkb/getCalendarWeekDatas`（JSON 请求体，字段名与官方接口一致）
+`POST /api/v1/lljw/schedule`（JSON 请求体）
 
-| 参数 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| `xnxqdm` | string | 是 | 学年学期代码，如 `202601` |
-| `zc` | int | 是 | 周次，如 `7` |
-| `d1` | string | 否 | 开始日期时间，如 `2026-10-26 00:00:00`（实测可省略） |
-| `d2` | string | 否 | 结束日期时间，如 `2026-11-02 00:00:00`（实测可省略） |
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+| --- | --- | --- | --- | --- |
+| `semester` | string | 否 | 自动当前学期 | 学期代码（如 `202601`），也接受名称 `2026-2027-1` |
+| `week` | int / `"all"` / `0` | 否 | 自动本周 | `1~N`；`"all"`/`0` = 全部周；仅 `query=week` 使用 |
+| `query` | string | 否 | `week` | `week` / `today` / `morning` / `afternoon` / `evening` / `day` / `next` |
+| `date` | string | 否 | - | `query=day` 时必填，格式 `YYYY-MM-DD` |
+
+**查询类型**
+
+| query | 返回 |
+| --- | --- |
+| `week` | 指定周/当前周全部课程 |
+| `today` | 今天全部课程（含上午/下午/晚上） |
+| `morning` | 今天上午：`pe <= 4`（第 1~4 节） |
+| `afternoon` | 今天下午：`5 <= ps <= 8`（第 5~8 节） |
+| `evening` | 今天晚上：`ps >= 9`（第 9~10 节，19:10 后） |
+| `day` | 指定日期（`date`）当天的课程 |
+| `next` | 从当前时间起最近一节课；本周没有则往后周找 |
+
+**自动取值**
+
+- `semester` 省略：解析教务 `week.page` 下拉框的选中项；
+- `week` 省略（`query=week`）：第 1 周周一日期 + 当前日期推算（当前 2026-10-31 = 第 8 周）；
+- 当天不在学期内（寒暑假）→ 返回 `422`，提示手动传 `week`；
+- 时区统一按北京时间（UTC+8）。
 
 ```bash
-curl -X POST "http://127.0.0.1:10381/api/v1/lljw/xsgrkb/getCalendarWeekDatas" \
+# 当前学期 + 当前周
+curl -X POST "http://127.0.0.1:10381/api/v1/lljw/schedule" \
   -H "X-API-Key: <你的 Key>" -H "Content-Type: application/json" \
-  -d '{"xnxqdm":"202601","zc":7,"d1":"2026-10-26 00:00:00","d2":"2026-11-02 00:00:00"}'
+  -d '{}'
+
+# 指定第 7 周
+-d '{"week":7}'
+
+# 全部周
+-d '{"week":"all"}'
+
+# 今天 / 上午 / 下午 / 晚上 / 最近一节
+-d '{"query":"today"}'
+-d '{"query":"morning"}'
+-d '{"query":"afternoon"}'
+-d '{"query":"evening"}'
+-d '{"query":"next"}'
+
+# 指定日期
+-d '{"query":"day","date":"2026-10-29"}'
 ```
 
-返回官方结构（`data` 为课表数据数组）：
+返回（易读字段，带节次/时间/周日期）：
 
 ```json
-{"code":0,"data":[{"kcmc":"示例课程","teaxms":"示例教师","jxbmc":"示例班级",
-  "jxcdmc":"XA1","qssj":"08:00:00","jssj":"09:40:00","qsrq":"2026-10-26",
-  "jsrq":"2026-10-26","zc":"7","xnxqdm":"202601","xq":"1","kkxqdm":"2"}]}
+{"code":0,"msg":"ok","data":{
+  "semester":"202601","semesterName":"2026-2027-1",
+  "query":"day","week":8,
+  "weekStart":"2026-10-26","weekEnd":"2026-11-01",
+  "date":"2026-10-29","total":2,
+  "items":[{
+    "courseName":"复变函数与积分变换III","courseCode":"10005536",
+    "teacher":"示例教师","location":"XC3","className":"示例班级",
+    "date":"2026-10-29","weekday":"周四","week":8,
+    "startPeriod":"01","endPeriod":"02","periodLabel":"第1-2节",
+    "startTime":"08:00","endTime":"09:40","weeks":"8","color":"#009688"
+  }]}}
 ```
 
-> `d1/d2` 可省略（只传 `xnxqdm` + `zc` 也能查到同一周课表）；网关会用当前 API Key 用户的 CAS 会话自动 SSO 到教务系统（`https://lljw.lit.edu.cn/new/ssoLogin`）；
-> 教务系统会话失效会自动重新 SSO 一次；CAS 本身失效则返回 `503 SESSION_ERROR`。
+> 旧 `getCalendarWeekDatas` 路由已删除；网关内部自动调用官方课表接口并按 `ps/pe` 节次归类、按日期过滤。
 
-### 4.3 多用户与 API Key 规则
+### 4.3 多用户与 API Key 规则### 4.3 多用户与 API Key 规则
 
 * 后台「👤 我的账号」可查看/复制/重新生成自己的 Key；**重新生成后旧 Key 立即失效**；
 * 不同 Key 对应不同用户的统一认证会话，互不影响；
@@ -344,7 +388,7 @@ app/
   systems/
     base.py             BaseSystem 抽象
     xsfw.py             智能查寝适配（SSO + 角色 + check-records→cqztbg.do）
-    lljw.py             教务系统适配（SSO + getCalendarWeekDatas）
+    lljw.py             教务系统适配（SSO + 学期/周次自动 + schedule）
   routers/
     docs.py             前台接口文档（自动生成）
     admin.py            菜单式后台 + 后台 API
@@ -352,7 +396,7 @@ app/
     lljw.py             教务系统接口路由
     auth.py             会话状态/登录（按 API Key 用户）
     health.py           健康检查
-tests/                  离线测试（37 个）：认证核心 / 两个业务接口 / 多用户后台 / 系统设置
+tests/                  离线测试（38 个）：认证核心 / 两个业务接口 / 多用户后台 / 系统设置
 Dockerfile              python:3.12-slim-bookworm、非 root、健康检查
 docker-compose.yml      本地/服务器部署（源码构建）：数据卷 ./data:/data、env_file .env、端口 10381
 docker-compose.fnos.yml fnOS（飞牛OS）部署：直接用 GHCR 镜像，无需源码/构建
@@ -366,11 +410,11 @@ data/                   用户表、各用户 CAS 会话、系统设置（运行
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest tests -q          # 37 passed（离线，不访问校园网）
+python -m pytest tests -q          # 38 passed（离线，不访问校园网）
 uvicorn app.main:app --host 0.0.0.0 --port 10381 --reload
 ```
 
-测试覆盖：CAS 核心工具、API Key 鉴权、智能查寝 check-records 参数/映射/校验、多用户登录/创建/删除、
+测试覆盖：CAS 核心工具、API Key 鉴权、智能查寝 check-records、教务 schedule 参数/节次/映射、多用户登录/创建/删除、
 密码/Key 重置、权限隔离、系统设置读取/保存/重启按钮（mock）、MFA 联动。
 
 ## 10. 扩展新系统 / 新接口

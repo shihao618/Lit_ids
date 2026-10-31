@@ -7,7 +7,7 @@
 
 业务系统：智能查寝（xsfw WIS 平台 zncqapp）、教务系统（lljw）。
 业务接口：智能查寝-查寝记录（POST /api/v1/dorm/check-records，自有参数/易读返回）、
-         教务系统-校历周数据（POST /api/v1/lljw/xsgrkb/getCalendarWeekDatas）。
+         教务系统-课表查询（POST /api/v1/lljw/schedule，学期/周次自动、支持多时段查询）。
 """
 
 __version__ = "0.1.0"

@@ -45,9 +45,11 @@ class FakeXsfw:
 
 
 class FakeLljw:
-    def get_calendar_week_datas(self, xnxqdm, zc, d1, d2):
-        return {"code": 0, "data": [{"kcmc": "示例课程", "zc": str(zc),
-                                     "xnxqdm": xnxqdm}]}
+    def schedule(self, semester="", week=None, query="week", date_text=""):
+        return {"code": 0, "msg": "ok", "data": {
+            "semester": "202601", "semesterName": "2026-2027-1",
+            "query": query, "week": 8, "weekStart": "2026-10-26",
+            "weekEnd": "2026-11-01", "date": None, "total": 0, "items": []}}
 
 
 def _client() -> TestClient:
@@ -215,18 +217,16 @@ def test_admin_interface_selftest():
         assert body["ok"] is True and body["data"]["code"] == 0
 
 
-def test_admin_calendar_selftest():
-    """后台接口自测：教务系统校历周数据（使用当前登录管理员自己的会话）."""
+def test_admin_schedule_selftest():
+    """后台接口自测：教务课表查询（使用当前登录管理员自己的会话）."""
     with _client() as c:
         _login(c)
-        r = c.get("/admin/api/test/calendar", params={
-            "xnxqdm": "202601", "zc": 7,
-            "d1": "2026-10-26 00:00:00", "d2": "2026-11-02 00:00:00"})
+        r = c.get("/admin/api/test/schedule", params={"query": "week"})
         body = r.json()
         assert body["ok"] is True
         assert body["data"]["code"] == 0
         html = c.get("/admin").text
-        assert "test-calendar" in html or "testCalendar" in html
+        assert "testSchedule" in html and "test-semester" in html
 
 
 def test_admin_system_settings_and_restart(monkeypatch):

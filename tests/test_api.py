@@ -15,7 +15,8 @@ from app.systems.xsfw import XsfwSystem  # noqa: E402
 HEADERS = {"X-API-Key": "test-key"}
 CHECK_RECORDS = "/api/v1/dorm/check-records"
 OLD_CQZTBG = "/api/v1/xsfw/sjkb/cqztbg"
-CALENDAR = "/api/v1/lljw/xsgrkb/getCalendarWeekDatas"
+SCHEDULE = "/api/v1/lljw/schedule"
+OLD_CALENDAR = "/api/v1/lljw/xsgrkb/getCalendarWeekDatas"
 
 
 class FakeXsfw(XsfwSystem):
@@ -63,12 +64,19 @@ class FakeLljw:
     def __init__(self):
         self.last_call = {}
 
-    def get_calendar_week_datas(self, xnxqdm, zc, d1, d2):
-        self.last_call.update({"xnxqdm": xnxqdm, "zc": zc, "d1": d1, "d2": d2})
-        return {"code": 0, "data": [{
-            "kcmc": "示例课程", "teaxms": "示例教师", "zc": str(zc),
-            "xnxqdm": xnxqdm, "qsrq": "2026-10-26", "jsrq": "2026-10-26"}]}
-
+    def schedule(self, semester="", week=None, query="week", date_text=""):
+        self.last_call.update({"semester": semester, "week": week,
+                               "query": query, "date_text": date_text})
+        return {"code": 0, "msg": "ok", "data": {
+            "semester": "202601", "semesterName": "2026-2027-1",
+            "query": query, "week": 8,
+            "weekStart": "2026-10-26", "weekEnd": "2026-11-01",
+            "date": "2026-10-29", "total": 1,
+            "items": [{"courseName": "示例课程", "teacher": "示例教师",
+                       "date": "2026-10-29", "weekday": "周四", "week": 8,
+                       "startPeriod": "01", "endPeriod": "02",
+                       "periodLabel": "第1-2节", "startTime": "08:00",
+                       "endTime": "09:40"}]}}
 
 def _client() -> TestClient:
     app.dependency_overrides[get_xsfw] = lambda: FakeXsfw()
@@ -227,57 +235,79 @@ def test_only_one_business_api():
             assert resp.status_code in (404, 405), (path, resp.status_code)
 
 
-# ---------------------------------------------------------------- 教务系统 校历周数据
-def test_calendar_official_params():
+# ---------------------------------------------------------------- 教务系统 课表查询
+def test_schedule_params():
     fake = FakeLljw()
     app.dependency_overrides[get_lljw] = lambda: fake
     with TestClient(app) as c:
-        r = c.post(CALENDAR, headers=HEADERS, json={
-            "xnxqdm": "202601", "zc": 7,
-            "d1": "2026-10-26 00:00:00", "d2": "2026-11-02 00:00:00"})
+        r = c.post(SCHEDULE, headers=HEADERS, json={
+            "semester": "202601", "query": "day", "date": "2026-10-29"})
         assert r.status_code == 200
         body = r.json()
         assert body["code"] == 0
-        assert body["data"][0]["kcmc"] == "示例课程"
-        assert fake.last_call["xnxqdm"] == "202601"
-        assert fake.last_call["zc"] == 7
-        assert "00:00:00" in fake.last_call["d1"]
+        assert body["data"]["total"] == 1
+        assert fake.last_call == {"semester": "202601", "week": None,
+                                  "query": "day", "date_text": "2026-10-29"}
 
 
-def test_calendar_date_range_optional():
-    """d1/d2 可省略（上游实测不需要），只传 xnxqdm + zc 也能查询."""
+def test_schedule_default_params():
     fake = FakeLljw()
     app.dependency_overrides[get_lljw] = lambda: fake
     with TestClient(app) as c:
-        r = c.post(CALENDAR, headers=HEADERS, json={"xnxqdm": "202601", "zc": 7})
+        r = c.post(SCHEDULE, headers=HEADERS, json={})
         assert r.status_code == 200
-        assert fake.last_call["xnxqdm"] == "202601"
-        assert fake.last_call["zc"] == 7
-        assert fake.last_call["d1"] == ""
-        assert fake.last_call["d2"] == ""
+        assert fake.last_call == {"semester": "", "week": None,
+                                  "query": "week", "date_text": ""}
 
 
-def test_calendar_requires_api_key():
+def test_schedule_requires_api_key():
     with TestClient(app) as c:
-        r = c.post(CALENDAR, json={"xnxqdm": "202601", "zc": 7,
-                                   "d1": "2026-10-26 00:00:00",
-                                   "d2": "2026-11-02 00:00:00"})
-        assert r.status_code == 401
+        assert c.post(SCHEDULE, json={}).status_code == 401
 
 
-def test_calendar_validation():
+def test_schedule_old_endpoint_removed():
     with _client() as c:
-        # 必填：xnxqdm、zc（d1/d2 已改为可选）
-        assert c.post(CALENDAR, headers=HEADERS, json={"zc": 7}).status_code == 422
-        assert c.post(CALENDAR, headers=HEADERS,
-                      json={"xnxqdm": "202601", "zc": 0}).status_code == 422
+        assert c.post(OLD_CALENDAR, headers=HEADERS, json={}).status_code == 404
 
 
-def test_calendar_in_docs_and_meta():
+def test_schedule_unit_helpers():
+    """不联网测试：节次过滤 / 课程映射 / 学期解析."""
+    from datetime import date
+
+    from app.systems.lljw import LljwSystem
+
+    morning = {"startPeriod": "01", "endPeriod": "02", "startTime": "08:00"}
+    afternoon = {"startPeriod": "05", "endPeriod": "06", "startTime": "14:30"}
+    evening = {"startPeriod": "09", "endPeriod": "10", "startTime": "19:10"}
+    items = [morning, afternoon, evening]
+    assert LljwSystem._filter_period(items, "morning") == [morning]
+    assert LljwSystem._filter_period(items, "afternoon") == [afternoon]
+    assert LljwSystem._filter_period(items, "evening") == [evening]
+
+    sys_ = LljwSystem(session=None)
+    row = {"kcmc": "示例课程", "kcdm": "123", "teaxms": "示例教师",
+           "jxcdmc": "XC3", "jxbmc": "示例班级", "qsrq": "2026-10-29",
+           "ps": "01", "pe": "02", "qssj": "08:00:00", "jssj": "09:40:00",
+           "zc": "8", "bgcolor": "#009688"}
+    mapped = sys_._map_course(row, 8, date(2026, 10, 26))
+    assert mapped["courseName"] == "示例课程"
+    assert mapped["weekday"] == "周四"
+    assert mapped["startPeriod"] == "01"
+    assert mapped["periodLabel"] == "第1-2节"
+    assert mapped["startTime"] == "08:00"
+
+    html = ("<select id='xnxqdm'>"
+            "<option value='202601' selected>2026-2027-1</option></select>")
+    opts = LljwSystem._parse_semester_options(html)
+    assert opts == [{"code": "202601", "name": "2026-2027-1", "selected": True}]
+
+
+def test_schedule_docs_and_meta():
     with TestClient(app) as c:
         docs = c.get("/")
         assert docs.status_code == 200
-        assert "/api/v1/lljw/xsgrkb/getCalendarWeekDatas" in docs.text
+        assert SCHEDULE in docs.text
         assert "教务系统" in docs.text
+        assert OLD_CALENDAR not in docs.text
         meta = c.get("/api/v1/meta").json()
-        assert any("getCalendarWeekDatas" in e for e in meta["endpoints"])
+        assert any(SCHEDULE in e for e in meta["endpoints"])

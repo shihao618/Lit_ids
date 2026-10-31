@@ -120,10 +120,13 @@ class CheckRecordsIn(BaseModel):
                         "normal 正常归寝 / late 晚归（也接受中文）")
 
 
-class CalendarWeekIn(BaseModel):
-    """教务系统 getCalendarWeekDatas 参数（官方字段名）."""
+class ScheduleIn(BaseModel):
+    """教务系统-课表查询（自有参数）."""
 
-    xnxqdm: str = Field(..., min_length=4, description="学年学期代码，如 202601（必填）")
-    zc: int = Field(..., ge=1, le=60, description="周次，如 7（必填）")
-    d1: str = Field("", description="开始日期时间，如 2026-10-26 00:00:00（可选，可省略）")
-    d2: str = Field("", description="结束日期时间，如 2026-11-02 00:00:00（可选，可省略）")
+    semester: str = Field("", description="学期代码，如 202601；不传=自动当前学期")
+    week: str | int | None = Field(
+        None, description='周次 1~N；"all" 或 0 = 全部周；不传=自动本周（仅 query=week 用）')
+    query: str = Field(
+        "week", description="week 本周/指定周；today 今天；morning 上午；afternoon 下午；"
+                            "evening 晚上；day 指定日期；next 最近一节")
+    date: str = Field("", description="query=day 时的日期，格式 YYYY-MM-DD")
