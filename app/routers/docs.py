@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import json
+import re
 import urllib.parse
 from html import escape
 from typing import Any
@@ -272,6 +273,28 @@ def _h(value: Any) -> str:
     return escape(str(value), quote=True)
 
 
+def _format_desc_text(text: str) -> str:
+    """普通描述：转义 + 行内 `code` + 换行."""
+    if not text.strip():
+        return ""
+    escaped = _h(text)
+    escaped = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", escaped)
+    return escaped.replace("\n", "<br>")
+
+
+def _render_description(text: str) -> str:
+    """把路由 docstring 中的 ```lang 代码块渲染成 <pre>，其余按普通文本处理."""
+    text = text or ""
+    parts: list[str] = []
+    pos = 0
+    for m in re.finditer(r"```(?:[a-zA-Z0-9_-]*)\n(.*?)```", text, re.S):
+        parts.append(_format_desc_text(text[pos:m.start()]))
+        parts.append("<pre>%s</pre>" % _h(m.group(1).strip("\n")))
+        pos = m.end()
+    parts.append(_format_desc_text(text[pos:]))
+    return "".join(parts)
+
+
 def _curl(ep: dict, base: str) -> str:
     query = [(p["name"], p["default"]) for p in ep["params"]
              if p["in"] == "query" and p["default"] not in (None, "")]
@@ -291,13 +314,13 @@ def _curl(ep: dict, base: str) -> str:
 def _render_endpoint(ep: dict, idx: int, base: str) -> str:
     eid = "ep-%d" % idx
     method_cls = "m-" + ep["method"].lower()
-    desc = _h(ep["description"]).replace("\n", "<br>")
+    desc = _render_description(ep["description"])
     parts = [f'<article class="endpoint" id="{eid}">',
              f'<div class="ep-head"><span class="method {method_cls}">{ep["method"]}</span>'
              f'<code class="path">{_h(ep["path"])}</code></div>',
              f'<h3>{_h(ep["summary"])}</h3>']
     if desc:
-        parts.append(f'<p class="desc">{desc}</p>')
+        parts.append(f'<div class="desc">{desc}</div>')
     if ep["params"]:
         parts.append('<table class="params"><thead><tr><th>参数</th><th>位置</th>'
                      '<th>类型</th><th>必填</th><th>默认值</th><th>说明</th></tr></thead><tbody>')
