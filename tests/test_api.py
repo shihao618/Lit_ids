@@ -122,6 +122,13 @@ def test_root_info():
         assert "classCode" in r.text
         assert "checkStatus" in r.text
         assert "checkStatusType" in r.text
+        assert "doc-sidebar" in r.text
+        assert "docs-topbar" in r.text
+        assert "endpoint-line" in r.text
+        assert "code-block" in r.text
+        assert "doc-table" in r.text
+        assert "@media(max-width:899px)" in r.text
+        assert "__NAV__" not in r.text
         # 页面不允许泄露任何密钥
         assert "test-key" not in r.text
         assert "test-admin" not in r.text

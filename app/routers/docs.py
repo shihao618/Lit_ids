@@ -311,19 +311,28 @@ def _curl(ep: dict, base: str) -> str:
     return "\n".join(lines)
 
 
+def _code_block(content: str, copy_id: str, label: str) -> str:
+    return ('<div class="blk"><p class="blk-title">%s '
+            '<button class="copy" data-copy="%s">复制</button></p>'
+            '<div class="code-block"><pre id="%s"><code>%s</code></pre></div></div>'
+            % (_h(label), copy_id, copy_id, _h(content)))
+
+
 def _render_endpoint(ep: dict, idx: int, base: str) -> str:
     eid = "ep-%d" % idx
-    method_cls = "m-" + ep["method"].lower()
+    method = ep["method"].lower()
     desc = _render_description(ep["description"])
-    parts = [f'<article class="endpoint" id="{eid}">',
-             f'<div class="ep-head"><span class="method {method_cls}">{ep["method"]}</span>'
-             f'<code class="path">{_h(ep["path"])}</code></div>',
-             f'<h3>{_h(ep["summary"])}</h3>']
+    parts = [f'<div class="endpoint-block" id="{eid}">',
+             f'<h3 class="doc-subheading">{_h(ep["summary"])}</h3>',
+             f'<div class="endpoint-line"><span class="method method-{method}">'
+             f'{ep["method"]}</span>'
+             f'<code class="endpoint-path">{_h(ep["path"])}</code></div>']
     if desc:
         parts.append(f'<div class="desc">{desc}</div>')
     if ep["params"]:
-        parts.append('<div class="table-wrap"><table class="params"><thead><tr><th>参数</th><th>位置</th>'
-                     '<th>类型</th><th>必填</th><th>默认值</th><th>说明</th></tr></thead><tbody>')
+        parts.append('<div class="table-wrap"><table class="doc-table"><thead><tr>'
+                     '<th>参数</th><th>位置</th><th>类型</th><th>必填</th>'
+                     '<th>默认值</th><th>说明</th></tr></thead><tbody>')
         for p in ep["params"]:
             type_display = p["type"]
             if p["enum"]:
@@ -336,9 +345,10 @@ def _render_endpoint(ep: dict, idx: int, base: str) -> str:
                              _h(p["description"])))
         parts.append("</tbody></table></div>")
     if ep.get("body_params"):
-        parts.append('<div class="blk-title">请求体参数（JSON）</div>')
-        parts.append('<div class="table-wrap"><table class="params"><thead><tr><th>参数</th><th>类型</th>'
-                     '<th>必填</th><th>默认值</th><th>说明</th></tr></thead><tbody>')
+        parts.append('<p class="blk-title">请求体参数（JSON）</p>')
+        parts.append('<div class="table-wrap"><table class="doc-table"><thead><tr>'
+                     '<th>参数</th><th>类型</th><th>必填</th><th>默认值</th>'
+                     '<th>说明</th></tr></thead><tbody>')
         for bp in ep["body_params"]:
             type_display = bp["type"]
             if bp["enum"]:
@@ -352,19 +362,13 @@ def _render_endpoint(ep: dict, idx: int, base: str) -> str:
         parts.append("</tbody></table></div>")
     if ep["request"] is not None:
         body = json.dumps(ep["request"], ensure_ascii=False, indent=2)
-        parts.append('<div class="blk"><div class="blk-title">请求体示例 '
-                     '<button class="copy" data-copy="req-%d">复制</button></div>'
-                     '<pre id="req-%d">%s</pre></div>' % (idx, idx, _h(body)))
-    curl = _curl(ep, base)
-    parts.append('<div class="blk"><div class="blk-title">curl 示例 '
-                 '<button class="copy" data-copy="curl-%d">复制</button></div>'
-                 '<pre id="curl-%d">%s</pre></div>' % (idx, idx, _h(curl)))
+        parts.append(_code_block(body, "req-%d" % idx, "请求体示例"))
+    parts.append(_code_block(_curl(ep, base), "curl-%d" % idx, "curl 示例"))
     resp = json.dumps(ep["response"], ensure_ascii=False, indent=2)
-    parts.append('<div class="blk"><div class="blk-title">响应示例 '
-                 '<button class="copy" data-copy="resp-%d">复制</button></div>'
-                 '<pre id="resp-%d">%s</pre></div>' % (idx, idx, _h(resp[:4000])))
+    parts.append(_code_block(resp[:4000], "resp-%d" % idx, "响应示例"))
+
     # 在线调试
-    parts.append('<div class="try"><div class="blk-title">在线调试（需先在上方填写 API Key）</div>')
+    parts.append('<div class="try"><p class="blk-title">在线调试（需先在上方填写 API Key）</p>')
     if ep["params"]:
         parts.append('<div class="try-params">')
         for p in ep["params"]:
@@ -373,19 +377,19 @@ def _render_endpoint(ep: dict, idx: int, base: str) -> str:
             if p["enum"]:
                 opts = ['<option value="">（不传）</option>'] + [
                     '<option value="%s">%s</option>' % (_h(v), _h(v)) for v in p["enum"]]
-                parts.append('<label>%s<select id="q-%d-%s">%s</select></label>'
+                parts.append('<label>%s<select class="input" id="q-%d-%s">%s</select></label>'
                              % (_h(p["name"]), idx, _h(p["name"]), "".join(opts)))
                 continue
             default = "" if p["default"] is None else p["default"]
-            parts.append('<label>%s<input id="q-%d-%s" value="%s" placeholder="%s"></label>'
+            parts.append('<label>%s<input class="input" id="q-%d-%s" value="%s" placeholder="%s"></label>'
                          % (_h(p["name"]), idx, _h(p["name"]), _h(default), _h(p["description"])))
         parts.append("</div>")
     if ep["request"] is not None:
         body = json.dumps(ep["request"], ensure_ascii=False, indent=2)
         parts.append('<textarea id="body-%d" spellcheck="false">%s</textarea>' % (idx, _h(body)))
-    parts.append('<button class="send" data-idx="%d">发送请求</button>' % idx)
+    parts.append('<button class="btn btn-primary send" data-idx="%d">发送请求</button>' % idx)
     parts.append('<pre class="result" id="out-%d">（响应结果）</pre>' % idx)
-    parts.append("</div></article>")
+    parts.append("</div></div>")
     return "\n".join(parts)
 
 
@@ -402,12 +406,16 @@ def _render_html(app: Any, request: Request) -> str:
     nav: list[str] = []
     idx = 0
     for group in groups:
-        nav.append(f'<div class="nav-title">{_h(group["tag"])}</div>')
-        cards.append(f'<h2 class="group" id="g-{idx}">{_h(group["tag"])}</h2>')
+        nav.append(f'<p class="doc-nav-title">{_h(group["tag"])}</p>')
+        cards.append(f'<section class="doc-section" id="g-{idx}">'
+                     f'<h2 class="doc-heading">{_h(group["tag"])}</h2>')
         for ep in group["endpoints"]:
             eid = "ep-%d" % idx
-            nav.append(f'<a href="#{eid}"><span class="m-{ep["method"].lower()}">'
-                       f'{ep["method"]}</span> {_h(ep["path"])}</a>')
+            label = ep["summary"] or ep["path"]
+            nav.append(
+                f'<a class="doc-nav-link" href="#{eid}" title="{_h(ep["method"] + " " + ep["path"])}">'
+                f'<span class="method method-{ep["method"].lower()}">{ep["method"]}</span> '
+                f'<span class="path">{_h(label)}</span></a>')
             cards.append(_render_endpoint(ep, idx, base))
             endpoints_js.append({
                 "id": idx,
@@ -420,6 +428,7 @@ def _render_html(app: Any, request: Request) -> str:
                           for p in ep["params"] if p["in"] == "query"],
             })
             idx += 1
+        cards.append("</section>")
 
     endpoints_json = json.dumps(endpoints_js, ensure_ascii=False)
     return DOCS_TMPL.replace("__CSS__", _CSS) \
@@ -439,144 +448,215 @@ def docs_page(request: Request) -> HTMLResponse:
 
 # ============================================================ 模板与样式
 _CSS = """
+:root{
+  --green:#07c160;--green-dark:#06ad56;--green-soft:#e8f8ef;--green-line:#c8eedb;
+  --bg:#f5f7fa;--card:#fff;--text:#1f2937;--text2:#4b5563;--muted:#8b95a5;
+  --border:#e5e7eb;--border2:#d1d5db;--danger:#e5484d;--danger-soft:#fdecec;
+  --warning:#d97706;--warning-soft:#fff7e6;--info-soft:#eff6ff;
+  --radius:10px;--radius-lg:14px;--shadow:0 1px 3px rgba(15,23,42,.06);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+}
 *{box-sizing:border-box}
-body{margin:0;background:#f5f7fb;color:#1e2430;font:14px/1.65 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
-header{background:#16233d;color:#fff;padding:14px 26px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20;box-shadow:0 2px 8px rgba(10,20,40,.15)}
-header h1{font-size:17px;margin:0;font-weight:600}
-header .links a{color:#a9c8ff;text-decoration:none;margin-left:18px;font-size:13px}
-.layout{display:flex;max-width:1280px;margin:0 auto;padding:20px 18px;gap:22px;align-items:flex-start}
-nav.side{width:265px;flex:none;position:sticky;top:72px;max-height:calc(100vh - 92px);overflow:auto;background:#fff;border-radius:10px;padding:14px 12px;box-shadow:0 1px 4px rgba(20,40,80,.08)}
-nav.side .nav-title{font-size:12px;color:#8794ab;text-transform:uppercase;margin:12px 6px 5px;letter-spacing:.06em}
-nav.side a{display:block;padding:5px 8px;border-radius:6px;color:#2b3852;text-decoration:none;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-nav.side a:hover{background:#eef3fd;color:#1d4ed8}
-nav.side a span{display:inline-block;width:46px;font-weight:700;font-size:11px}
-main{flex:1;min-width:0}
-.hero{background:linear-gradient(135deg,#1e3a8a,#2f6fed);color:#fff;border-radius:12px;padding:24px 26px;margin-bottom:20px}
-.hero h2{margin:0 0 8px;font-size:21px}
-.hero p{margin:4px 0;color:#dbe6ff;font-size:13.5px}
-.hero .kv{display:flex;gap:26px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:#e6eeff}
-.hero code{background:rgba(255,255,255,.16);padding:2px 7px;border-radius:5px}
-.authbox{background:#fff;border-radius:10px;padding:14px 18px;margin-bottom:20px;box-shadow:0 1px 4px rgba(20,40,80,.08);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-.authbox b{color:#16233d}
-.authbox input{flex:1;min-width:240px;padding:8px 10px;border:1px solid #d5dce8;border-radius:7px;font:inherit}
-.authbox button{padding:8px 16px;border:0;border-radius:7px;background:#2f6fed;color:#fff;font:inherit;cursor:pointer}
-.authbox .note{font-size:12px;color:#8794ab;width:100%}
-h2.group{font-size:16px;margin:26px 0 12px;padding-left:10px;border-left:4px solid #2f6fed;color:#16233d}
-.endpoint{background:#fff;border-radius:10px;padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(20,40,80,.08)}
-.ep-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.method{display:inline-block;padding:3px 10px;border-radius:6px;color:#fff;font-size:12px;font-weight:700;letter-spacing:.03em}
-.m-get{background:#15905a}.m-post{background:#2f6fed}.m-put{background:#b45309}.m-delete{background:#c94040}
-.endpoint .path{font-size:14px;font-weight:600;color:#1e293b;background:#f1f5fb;padding:3px 8px;border-radius:5px;word-break:break-all}
-.endpoint h3{font-size:14.5px;margin:10px 0 4px;color:#1e293b}
-.desc{color:#5b6880;font-size:13px;margin:4px 0 10px}
-table.params{width:100%;border-collapse:collapse;font-size:12.5px;margin:10px 0}
-table.params th,table.params td{border-bottom:1px solid #eef2f8;padding:6px 8px;text-align:left;vertical-align:top}
-table.params th{color:#66738a;font-weight:600;background:#f8fafd}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.65 var(--sans);-webkit-text-size-adjust:100%}
+a{color:inherit;text-decoration:none}
+.skip-link{position:fixed;top:-60px;left:12px;z-index:200;padding:8px 14px;border-radius:8px;background:var(--green);color:#fff;font-size:13px}
+.skip-link:focus{top:10px}
+.doc-sidebar{position:fixed;top:0;left:0;bottom:0;z-index:40;width:232px;padding:12px 10px;border-right:1px solid var(--border);background:#fff;display:flex;flex-direction:column;overflow-y:auto}
+.doc-sidebar-top{display:flex;align-items:center;gap:6px;margin:0 2px 10px}
+.brand{display:inline-flex;align-items:center;gap:8px;min-width:0;color:var(--text)}
+.brand:hover{color:var(--text)}
+.brand-icon{width:28px;height:28px;border-radius:8px;flex:none}
+.brand-name{font-size:16px;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+.brand-tag{display:inline-block;padding:1px 8px;border-radius:999px;background:var(--green-soft);color:#047a3d;font-size:11px;font-weight:600;white-space:nowrap}
+.doc-sidebar-brand{margin:0 6px 0 2px}
+.doc-nav{display:flex;flex-direction:column;gap:2px;padding:12px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card)}
+.doc-nav-title{padding:2px 10px 8px;color:var(--muted);font-size:12px;font-weight:600;margin:8px 0 0}
+.doc-nav-title:first-child{margin-top:0}
+.doc-nav-link{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:7px;color:var(--text2);font-size:13px;line-height:1.45;transition:background .15s,color .15s;min-width:0}
+.doc-nav-link:hover{background:#f9fafb;color:var(--text)}
+.doc-nav-link .method{flex:none;min-width:42px;padding:1px 5px;font-size:10.5px}
+.doc-nav-link .path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.doc-sidebar-footer{margin-top:auto;padding-top:14px}
+.doc-sidebar-footer .doc-nav-link{font-size:13px;padding:8px 10px}
+.doc-sidebar-footer .doc-nav-link span{margin-right:2px}
+.docs-nav-close{display:none;flex:none;align-items:center;justify-content:center;width:32px;height:32px;margin-left:auto;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text2);font-size:20px;line-height:1;cursor:pointer}
+.docs-nav-overlay{position:fixed;inset:0;z-index:35;background:rgba(15,23,42,.45)}
+.docs-nav-overlay[hidden]{display:none!important}
+.docs-main{display:flex;flex-direction:column;min-height:100vh;margin-left:232px;min-width:0}
+.docs-topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;padding:12px 24px;background:rgba(255,255,255,.94);border-bottom:1px solid var(--border);backdrop-filter:blur(6px)}
+.docs-topbar-title{flex:1;min-width:0;display:flex;flex-direction:column}
+.docs-topbar-title strong{font-size:19px;font-weight:700;line-height:1.3}
+.docs-topbar-title span{font-size:12px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.docs-topbar-actions{display:flex;align-items:center;gap:8px;flex:none}
+.docs-menu-toggle{display:none;flex:none;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid var(--border);border-radius:10px;background:#fff;color:var(--text);font-size:17px;line-height:1;cursor:pointer}
+.docs-menu-toggle:hover{background:#f9fafb}
+.docs-content{flex:1;width:100%;max-width:1200px;margin:0 auto;padding:20px 24px 40px}
+.doc-content{max-width:100%;padding:28px 32px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card);box-shadow:var(--shadow);min-width:0}
+.doc-title{font-size:clamp(22px,3vw,28px);font-weight:700;letter-spacing:-.02em;margin:0}
+.doc-lead{margin:8px 0 0;color:var(--text2);font-size:14px}
+.doc-note{margin:12px 0;padding:10px 12px;border-left:4px solid var(--warning);border-radius:8px;background:var(--warning-soft);color:#7a4f01;font-size:13px}
+.doc-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0}
+.doc-card{padding:14px;border:1px solid var(--border);border-radius:10px;background:#f9fafb;min-width:0}
+.doc-card-title{font-size:13.5px;font-weight:700;margin:0 0 6px}
+.doc-card p{margin:4px 0;font-size:12.5px;color:var(--text2)}
+.doc-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0}
+.doc-toolbar .input{flex:1 1 240px;min-width:0}
+.input{width:100%;padding:8px 10px;border:1px solid var(--border2);border-radius:8px;background:#fff;font:inherit;color:var(--text)}
+.input:focus{outline:2px solid var(--green-line);border-color:var(--green);outline-offset:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 14px;border:1px solid transparent;border-radius:8px;background:var(--green);color:#fff;font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--green-dark)}
+.btn-ghost{border-color:var(--border);background:#fff;color:var(--text2);font-weight:500}
+.btn-ghost:hover{background:#f9fafb;color:var(--text)}
+.doc-section{margin-top:32px;padding-top:22px;border-top:1px solid var(--border);scroll-margin-top:calc(64px + 16px)}
+.doc-heading{font-size:19px;font-weight:700;padding-left:10px;border-left:4px solid var(--green);margin:0 0 12px}
+.doc-subheading{font-size:15.5px;font-weight:700;margin:24px 0 6px;color:var(--text)}
+.doc-subheading:first-child{margin-top:0}
+.endpoint-block{padding:16px 0;min-width:0}
+.endpoint-block + .endpoint-block{border-top:1px dashed var(--border)}
+.endpoint-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0}
+.endpoint-path{font-family:var(--mono);font-size:13px;color:var(--text);background:#f9fafb;border:1px solid var(--border);border-radius:6px;padding:1px 7px;word-break:break-all}
+.method{display:inline-block;min-width:58px;text-align:center;padding:1px 7px;border-radius:6px;font-family:var(--mono);font-size:11.5px;font-weight:700;letter-spacing:.03em}
+.method-get{background:var(--info-soft);color:#1d4ed8}
+.method-post{background:var(--green-soft);color:#047a3d}
+.method-put{background:var(--warning-soft);color:#b45309}
+.method-delete{background:var(--danger-soft);color:#b91c1c}
+.desc{color:var(--text2);font-size:13.5px;margin:6px 0 10px;min-width:0}
+.desc pre{margin:8px 0;padding:10px 12px;border-radius:8px;background:#0f172a;color:#e2e8f0;font:12px/1.6 var(--mono);overflow-x:auto;max-width:100%;white-space:pre}
 .blk{margin-top:12px}
-.blk-title{font-size:12.5px;color:#66738a;font-weight:600;margin-bottom:5px;display:flex;align-items:center;gap:10px}
-button.copy{padding:1px 8px;font-size:11.5px;border:1px solid #cfd9e8;background:#f8fafd;border-radius:5px;color:#445;cursor:pointer}
-pre{background:#0f172a;color:#d8e3f6;padding:12px;border-radius:8px;overflow:auto;font-size:12.5px;line-height:1.5;margin:0}
-.try{margin-top:14px;border-top:1px dashed #dfe6f1;padding-top:12px}
+.blk-title{display:flex;align-items:center;gap:8px;margin:0 0 6px;color:var(--muted);font-size:12.5px;font-weight:600}
+button.copy{padding:1px 8px;font-size:11.5px;border:1px solid var(--border);background:#fff;border-radius:6px;color:var(--text2);cursor:pointer;font-family:inherit}
+button.copy:hover{background:#f9fafb;color:var(--text)}
+.table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;margin:10px 0;border:1px solid var(--border);border-radius:10px}
+.doc-table{width:100%;border-collapse:collapse;font-size:13px;min-width:620px;margin:0}
+.doc-table th,.doc-table td{padding:9px 11px;text-align:left;vertical-align:top;border-bottom:1px solid var(--border)}
+.doc-table th{background:#f9fafb;color:var(--muted);font-size:12px;font-weight:600;white-space:nowrap}
+.doc-table tr:last-child td{border-bottom:none}
+.doc-table code,.code-inline{padding:1px 5px;border-radius:5px;background:#f1f5f9;color:#334155;font-family:var(--mono);font-size:12px;word-break:break-word;overflow-wrap:anywhere}
+.code-block{margin:10px 0;border-radius:10px;background:#0f172a;overflow:hidden;min-width:0;max-width:100%}
+.code-block pre{margin:0;padding:10px 14px 14px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.code-block code{color:#e2e8f0;font:12.5px/1.7 var(--mono);white-space:pre}
+.try{margin-top:16px;padding-top:14px;border-top:1px dashed var(--border)}
 .try-params{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-.try-params label{font-size:12px;color:#66738a;display:flex;align-items:center;gap:6px}
-.try-params input{width:150px;padding:5px 8px;border:1px solid #d5dce8;border-radius:6px;font:inherit}
-.try textarea{width:100%;min-height:74px;padding:8px 10px;border:1px solid #d5dce8;border-radius:7px;font:12.5px Consolas,monospace;background:#fbfcfe}
-button.send{margin-top:9px;padding:7px 18px;border:0;border-radius:7px;background:#16233d;color:#fff;font:inherit;cursor:pointer}
-button.send:disabled{opacity:.6;cursor:not-allowed}
-pre.result{margin-top:10px;max-height:260px}
-.err-codes{background:#fff;border-radius:10px;padding:16px 20px;margin-top:22px;box-shadow:0 1px 4px rgba(20,40,80,.08)}
-.err-codes h2{font-size:15px;margin:0 0 10px;color:#16233d}
-.err-codes table{width:100%;border-collapse:collapse;font-size:12.5px}
-.err-codes td,.err-codes th{border-bottom:1px solid #eef2f8;padding:6px 8px;text-align:left}
-footer{max-width:1280px;margin:10px auto 30px;padding:0 18px;color:#8794ab;font-size:12px}
-@media(max-width:980px){.layout{flex-direction:column;align-items:stretch}.layout>main{width:100%;min-width:0}.layout>nav.side{position:static;width:100%;max-height:none}}
+.try-params label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);min-width:0}
+.try-params label input,.try-params label select{width:150px}
+.try textarea{width:100%;min-height:76px;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font:12.5px/1.6 var(--mono);background:#fbfcfe;color:var(--text)}
+button.send{margin-top:10px}
+pre.result{margin-top:10px;max-height:280px;padding:12px 14px;border-radius:10px;background:#0f172a;color:#e2e8f0;font:12.5px/1.65 var(--mono);overflow:auto;white-space:pre-wrap;word-break:break-word}
+.site-footer{margin-top:32px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted);font-size:12px;text-align:center}
+.site-footer a{color:var(--text2)}
+@media(max-width:899px){
+ .docs-main{margin-left:0}
+ .doc-sidebar{width:min(300px,85vw);padding:12px;transform:translateX(-100%);visibility:hidden;transition:transform .2s ease,visibility .2s ease;box-shadow:none}
+ body.docs-nav-open .doc-sidebar{transform:none;visibility:visible;box-shadow:0 18px 40px rgba(15,23,42,.18)}
+ .docs-nav-close{display:inline-flex}
+ .docs-nav-overlay{display:block}
+ .docs-menu-toggle{display:inline-flex}
+ .docs-topbar{padding:10px 14px;gap:8px}
+ .docs-topbar-title strong{font-size:17px}
+ .docs-topbar-title span{font-size:11.5px}
+ .docs-topbar-actions .btn{display:none}
+ .docs-content{max-width:none;padding:14px 12px 28px}
+ .doc-content{padding:18px 16px;border-radius:12px}
+ .doc-title{font-size:22px}
+}
 @media(max-width:640px){
- body{-webkit-text-size-adjust:100%}
- header{padding:10px 12px;flex-wrap:wrap;gap:8px;position:sticky}
- header h1{font-size:15px;line-height:1.35}
- header .links{display:flex;flex-wrap:wrap;gap:6px 14px;width:100%}
- header .links a{margin-left:0;font-size:12px}
- .layout{padding:12px;gap:12px}
- nav.side{display:flex;flex-wrap:wrap;gap:4px;padding:10px;border-radius:8px}
- nav.side .nav-title{width:100%;margin:2px 6px}
- nav.side a{display:inline-block;max-width:100%;padding:5px 9px;background:#f3f6fc;border-radius:999px;font-size:12px;white-space:nowrap}
- nav.side a span{width:auto;margin-right:5px}
- .hero{padding:16px 14px;border-radius:10px;margin-bottom:12px}
- .hero h2{font-size:18px}
- .hero p{font-size:12.5px}
- .hero .kv{gap:6px 14px;font-size:12px}
- .hero .kv code{word-break:break-word;overflow-wrap:anywhere}
- .authbox{padding:12px;gap:8px;flex-direction:column;align-items:stretch;margin-bottom:12px}
- .authbox b{font-size:13px}
- .authbox input{width:100%;min-width:0}
- .authbox button{width:100%}
- h2.group{font-size:15px;margin:18px 0 10px}
- .endpoint{padding:14px 12px;border-radius:8px}
- .endpoint h3{font-size:14px;margin-top:8px}
- .endpoint .path{font-size:12.5px;word-break:break-all}
- .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:8px 0}
- table.params{min-width:560px;margin:0;font-size:12px}
- .err-codes{padding:14px 12px}
- .err-codes table{min-width:480px}
- pre{font-size:11.5px;padding:10px;border-radius:6px}
- .try-params{gap:8px}
+ .doc-sidebar{width:min(86vw,300px)}
+ .docs-topbar-title span{display:none}
+ .doc-content{padding:14px 12px;border-radius:10px}
+ .doc-title{font-size:20px}
+ .doc-lead{font-size:13px}
+ .doc-note{font-size:12.5px}
+ .doc-section{margin-top:24px;padding-top:16px}
+ .doc-heading{font-size:17px}
+ .doc-subheading{font-size:14.5px}
+ .endpoint-line{gap:6px}
+ .endpoint-path{font-size:12px}
+ .doc-table{min-width:560px;font-size:12.5px}
+ .doc-table th,.doc-table td{padding:8px 9px}
+ .code-block code{font-size:11.5px}
  .try-params label{width:100%}
- .try-params input{flex:1;width:auto;min-width:0}
- button.send{width:100%}
- footer{padding:0 12px;font-size:11.5px}
+ .try-params label input,.try-params label select{flex:1;width:auto;min-width:0}
+ .doc-cards{grid-template-columns:1fr}
+ .doc-toolbar .input{flex-basis:100%}
+ .doc-toolbar .btn{width:100%}
+ pre.result{font-size:11.5px}
 }
 """
 
 DOCS_TMPL = """<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
-<title>__APP_NAME__ · 接口文档</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__APP_NAME__ · API 文档</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07C160">
 <style>__CSS__</style></head>
-<body>
-<header>
-  <h1>__APP_NAME__ · 接口文档 <span style="font-weight:400;font-size:12px;color:#93a7c8">v__VERSION__</span></h1>
-  <div class="links">
-    <a href="/docs" target="_blank">Swagger 调试</a>
-    <a href="/admin" target="_blank">后台管理</a>
-    <a href="/openapi.json" target="_blank">OpenAPI</a>
+<body class="page-docs">
+<a class="skip-link" href="#main">跳到主要内容</a>
+<aside class="doc-sidebar" id="docs-nav">
+  <div class="doc-sidebar-top">
+    <a class="brand doc-sidebar-brand" href="/" aria-label="__APP_NAME__ 首页">
+      <svg class="brand-icon" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+        <rect width="64" height="64" rx="14" fill="#07C160"></rect>
+        <path d="M22 16h20a10 10 0 0 1 10 10v8a10 10 0 0 1-10 10H34l-9 8v-8h-3a10 10 0 0 1-10-10v-8a10 10 0 0 1 10-10z" fill="#ffffff"></path>
+        <circle cx="27" cy="30" r="3" fill="#07C160"></circle>
+        <circle cx="38" cy="30" r="3" fill="#07C160"></circle>
+      </svg>
+      <span class="brand-name">LIT Gateway</span>
+      <span class="brand-tag">API 文档</span>
+    </a>
+    <button id="docs-nav-close" class="docs-nav-close" type="button" aria-label="关闭文档目录">×</button>
   </div>
-</header>
-<div class="layout">
-  <nav class="side">
-    <div class="nav-title">目录</div>
+  <nav class="doc-nav" aria-label="文档目录">
+    <p class="doc-nav-title">目录</p>
     __NAV__
   </nav>
-  <main>
-    <div class="hero">
-      <h2>洛阳理工学院统一认证 · 接口服务</h2>
-      <p>多用户版：每个网关用户拥有自己的统一认证账号、独立 CAS 会话和独立 API Key；当前业务接口：智能查寝、教务课表。</p>
-      <div class="kv">
-        <span>Base URL：<code>__BASE__</code></span>
-        <span>鉴权：<code>X-API-Key</code> 请求头</span>
-        <span>响应格式：<code>{"code":0,"msg":"ok","data":...}</code></span>
+  <div class="doc-sidebar-footer">
+    <a class="doc-nav-link" href="/docs" target="_blank"><span aria-hidden="true">📘</span> Swagger 调试</a>
+    <a class="doc-nav-link" href="/admin" target="_blank"><span aria-hidden="true">⚙️</span> 后台管理</a>
+    <a class="doc-nav-link" href="/openapi.json" target="_blank"><span aria-hidden="true">🧩</span> OpenAPI</a>
+  </div>
+</aside>
+<div id="docs-nav-overlay" class="docs-nav-overlay" hidden></div>
+<div class="docs-main">
+  <header class="docs-topbar">
+    <button id="docs-menu-toggle" class="docs-menu-toggle" type="button" aria-label="打开文档目录" aria-controls="docs-nav" aria-expanded="false">☰</button>
+    <div class="docs-topbar-title"><strong>API 文档</strong><span>__APP_NAME__ · v__VERSION__</span></div>
+    <div class="docs-topbar-actions">
+      <a class="btn btn-ghost" href="/admin" target="_blank">后台管理</a>
+      <a class="btn btn-ghost" href="/docs" target="_blank">Swagger</a>
+    </div>
+  </header>
+  <main id="main" class="docs-content">
+    <article class="doc-content">
+      <h1 class="doc-title">__APP_NAME__ · 接口文档</h1>
+      <p class="doc-lead">多用户统一认证接口网关：每个用户拥有自己的统一认证账号、独立 CAS 会话和独立 API Key。当前业务接口：智能查寝、教务课表，另提供会话状态/登录接口。</p>
+      <p class="doc-note">调用 <code class="code-inline">/api/v1/**</code> 接口需在请求头带 <code class="code-inline">X-API-Key</code>；页面本身不包含任何密钥，在线调试时只从本机浏览器读取。</p>
+      <div class="doc-cards">
+        <div class="doc-card"><h3 class="doc-card-title">统一响应格式</h3><p>成功：<code class="code-inline">{"code":0,"msg":"ok","data":...}</code></p><p>错误：<code class="code-inline">code</code> 为非 0，并带 <code class="code-inline">msg</code> / <code class="code-inline">hint</code>。</p></div>
+        <div class="doc-card"><h3 class="doc-card-title">鉴权方式</h3><p>每个网关用户有独立 API Key，请求头：<code class="code-inline">X-API-Key</code>。</p><p>可在后台「我的账号」查看/复制/重置。</p></div>
+        <div class="doc-card"><h3 class="doc-card-title">会话机制</h3><p>每个 API Key 对应用户自己的统一认证会话；失效时自动重新登录，需要 MFA 时到后台「登录调试」处理。</p></div>
       </div>
-    </div>
-
-    <div class="authbox">
-      <b>API Key：</b>
-      <input id="api-key" type="password" placeholder="输入 API_KEY（仅保存在本机浏览器）" autocomplete="off">
-      <button onclick="saveKey()">保存</button>
-      <span id="key-tip" class="note">每个用户有自己的 API Key（后台 <a href="/admin" target="_blank">/admin</a> 登录后查看）；在线调试时会把该 Key 放进 X-API-Key 请求头，页面本身不包含任何密钥。</span>
-    </div>
-
-    __CARDS__
-
-    <section class="err-codes">
-      <h2>通用错误码</h2>
-      <div class="table-wrap"><table>
-        <tr><th>HTTP / code</th><th>含义</th><th>处理建议</th></tr>
-        <tr><td>401 + <code>{"detail":"无效的 API Key…"}</code></td><td>API Key 缺失或错误</td><td>在页面顶部填写正确的 API_KEY</td></tr>
-        <tr><td>503 + <code>SESSION_ERROR</code></td><td>CAS 会话失效且自动登录失败 / 需要企业微信验证码</td><td>到 <a href="/admin">后台</a> 登录调试页处理（输入验证码或重新登录）</td></tr>
-        <tr><td>403 + <code>FORBIDDEN</code></td><td>智能查寝角色无权限（如「学生组」）</td><td>使用有查寝权限的角色（如「班级管理员」）</td></tr>
+      <div class="doc-toolbar">
+        <input id="api-key" class="input" type="password" placeholder="输入 API Key（仅保存在本机浏览器）" autocomplete="off">
+        <button class="btn btn-primary" onclick="saveKey()">保存 API Key</button>
+      </div>
+      <p id="key-tip" class="doc-lead">API Key 可在后台 <a href="/admin" target="_blank">/admin</a> 登录后查看；在线调试时放到 <code class="code-inline">X-API-Key</code> 请求头。</p>
+      __CARDS__
+      <section class="doc-section" id="error-codes">
+        <h2 class="doc-heading">通用错误码</h2>
+        <div class="table-wrap"><table class="doc-table">
+          <thead><tr><th>HTTP / code</th><th>含义</th><th>处理建议</th></tr></thead>
+          <tbody>
+            <tr><td>401 + <code>无效的 API Key</code></td><td>API Key 缺失或错误</td><td>在页面顶部填写正确的 API Key</td></tr>
+            <tr><td>503 + <code>SESSION_ERROR</code></td><td>CAS 会话失效且自动登录失败 / 需要企业微信验证码</td><td>到 <a href="/admin">后台</a>「登录调试」处理（输入验证码或重新登录）</td></tr>
+            <tr><td>403 + <code>FORBIDDEN</code></td><td>智能查寝角色无权限（如「学生组」）</td><td>使用有查寝权限的角色（如「班级管理员」）</td></tr>
             <tr><td>200 + <code>{"code":0}</code></td><td>成功</td><td>-</td></tr>
-      </table></div>
-    </section>
-    <footer>接口文档由 OpenAPI 自动生成 · 多用户版 · 配置自己的统一认证账号/查看 API Key 请访问 <a href="/admin">后台管理</a></footer>
+          </tbody>
+        </table></div>
+      </section>
+      <footer class="site-footer">接口文档由 OpenAPI 自动生成 · 多用户版 · <a href="/admin" target="_blank">后台管理</a> · <a href="/docs" target="_blank">Swagger</a></footer>
+    </article>
   </main>
 </div>
 <script>
@@ -599,8 +679,25 @@ async function copyText(text){
   if(!ok) ok=copyTextFallback(text);
   return ok;
 }
-function saveKey(){const v=document.getElementById('api-key').value.trim();localStorage.setItem('lit_api_key',v);document.getElementById('key-tip').textContent=v?'API Key 已保存到本机浏览器（localStorage）':'已清除 API Key';}
+function saveKey(){
+  const v=document.getElementById('api-key').value.trim();
+  localStorage.setItem('lit_api_key',v);
+  document.getElementById('key-tip').textContent=v?'API Key 已保存到本机浏览器（localStorage）':'已清除 API Key';
+}
 (function(){const k=localStorage.getItem('lit_api_key');if(k)document.getElementById('api-key').value=k;})();
+(function(){
+  const toggle=document.getElementById('docs-menu-toggle');
+  const closeBtn=document.getElementById('docs-nav-close');
+  const overlay=document.getElementById('docs-nav-overlay');
+  function openNav(){document.body.classList.add('docs-nav-open');if(overlay)overlay.hidden=false;if(toggle)toggle.setAttribute('aria-expanded','true');}
+  function closeNav(){document.body.classList.remove('docs-nav-open');if(overlay)overlay.hidden=true;if(toggle)toggle.setAttribute('aria-expanded','false');}
+  if(toggle)toggle.addEventListener('click',openNav);
+  if(closeBtn)closeBtn.addEventListener('click',closeNav);
+  if(overlay)overlay.addEventListener('click',closeNav);
+  document.querySelectorAll('#docs-nav .doc-nav-link').forEach(a=>a.addEventListener('click',closeNav));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeNav();});
+  window.addEventListener('resize',()=>{if(window.innerWidth>899)closeNav();});
+})();
 document.addEventListener('click',async function(ev){
   const copyBtn=ev.target.closest('button.copy');
   if(copyBtn){const pre=document.getElementById(copyBtn.dataset.copy);if(pre){const ok=await copyText(pre.textContent);copyBtn.textContent=ok?'已复制':'复制失败，请手动选择';setTimeout(()=>copyBtn.textContent='复制',1600);}return;}
