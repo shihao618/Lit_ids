@@ -1,7 +1,7 @@
 """运行时系统配置（后台「系统设置」可修改，落盘 data/settings.json）.
 
 运行参数只在后台「系统设置」维护（落盘 data/settings.json），不从 .env 读取：
-  * app_name                 界面/文档标题（即时生效；Swagger 标题需重启）
+  * app_name                 界面/文档标题（即时生效）
   * log_level                日志级别（即时生效）
   * session_refresh_interval 会话保活间隔秒（即时生效，后台任务动态读取）
   * auto_login_on_start      启动时自动登录（需要重启容器生效）
@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 #: 可后台修改的配置项元信息
 EDITABLE: dict[str, dict[str, Any]] = {
     "app_name": {"label": "系统名称", "type": "string", "restart": False,
-                 "description": "显示在后台/接口文档标题；Swagger 页标题需重启后更新"},
+                 "description": "显示在后台/接口文档标题"},
     "log_level": {"label": "日志级别", "type": "enum", "restart": False,
                   "options": ["DEBUG", "INFO", "WARNING", "ERROR"]},
     "session_refresh_interval": {"label": "会话保活间隔（秒）", "type": "int",

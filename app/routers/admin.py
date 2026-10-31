@@ -635,7 +635,6 @@ _DASHBOARD_TMPL = """<!doctype html>
     </nav>
     <div class="sidebar-footer">
       <a class="sidebar-link" href="/"><span aria-hidden="true">🌐</span> 接口文档</a>
-      <a class="sidebar-link" href="/docs"><span aria-hidden="true">📘</span> Swagger</a>
       <a class="sidebar-link" href="/admin/logout"><span aria-hidden="true">🚪</span> 退出后台</a>
     </div>
   </aside>
@@ -862,7 +861,7 @@ _DASHBOARD_TMPL = """<!doctype html>
         <pre id="logs">（日志）</pre>
       </div>
     </section>
-      <footer class="admin-footer">LIT Gateway · 管理后台 · 当前视图每 8 秒自动刷新（页面隐藏时暂停） · <a href="/">接口文档</a> · <a href="/docs">Swagger</a></footer>
+      <footer class="admin-footer">LIT Gateway · 管理后台 · 当前视图每 8 秒自动刷新（页面隐藏时暂停） · <a href="/">接口文档</a></footer>
     </main>
   </div>
 </div>

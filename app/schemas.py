@@ -1,4 +1,4 @@
-"""请求 / 响应模型（用于 OpenAPI 文档与参数校验）."""
+"""请求 / 响应模型（参数校验与接口文档）."""
 
 from __future__ import annotations
 

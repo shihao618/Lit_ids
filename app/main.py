@@ -132,6 +132,9 @@ def create_app() -> FastAPI:
         ),
         lifespan=lifespan,
         default_response_class=UTF8JSONResponse,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
     )
     app.state.settings = settings
 
@@ -175,9 +178,7 @@ def create_app() -> FastAPI:
             "name": runtime.get("app_name"),
             "version": settings.version,
             "docs": "/",
-            "swagger": "/docs",
             "admin": "/admin",
-            "openapi": "/openapi.json",
             "health": "/healthz",
             "auth": "每个用户在后台获得自己的 API Key（X-API-Key 请求头），调用各自统一认证账号的接口",
             "endpoints": [

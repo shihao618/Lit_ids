@@ -8,7 +8,7 @@
   * 文档内容由 FastAPI 的 OpenAPI 自动生成（新增接口后页面自动出现），
     再叠加少量人工维护的「请求/响应示例」，排版更适合阅读/拷贝；
   * 页面不包含任何密钥；"在线调试" 需要用户自己填写 API Key（存 localStorage）；
-  * Swagger UI 仍在 /docs，后台调试界面在 /admin。
+  * 后台调试界面在 /admin。
 """
 
 from __future__ import annotations
@@ -26,7 +26,6 @@ router = APIRouter(tags=["前台接口文档"])
 
 #: 不在前台文档中展示的路径
 HIDDEN_PATHS = {
-    "/openapi.json", "/docs", "/redoc", "/docs/oauth2-redirect",
     "/healthz", "/readyz", "/api/v1/meta",
 }
 
@@ -659,7 +658,7 @@ DOCS_TMPL = """<!doctype html>
           </tbody>
         </table></div>
       </section>
-      <footer class="site-footer">接口文档由 OpenAPI 自动生成 · 多用户版 · <a href="/admin">后台管理</a> · <a href="/docs">Swagger</a></footer>
+      <footer class="site-footer">接口文档 · 多用户版 · <a href="/admin">后台管理</a></footer>
     </article>
   </main>
 </div>

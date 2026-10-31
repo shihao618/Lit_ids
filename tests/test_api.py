@@ -143,8 +143,11 @@ def test_meta_json():
     with TestClient(app) as c:
         body = c.get("/api/v1/meta").json()
         assert body["docs"] == "/"
-        assert body["swagger"] == "/docs"
+        assert "swagger" not in body
+        assert "openapi" not in body
         assert body["admin"] == "/admin"
+        for path in ("/docs", "/redoc", "/openapi.json"):
+            assert c.get(path).status_code == 404
         assert any(CHECK_RECORDS in e for e in body["endpoints"])
 
 
