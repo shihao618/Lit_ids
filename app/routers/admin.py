@@ -634,8 +634,8 @@ _DASHBOARD_TMPL = """<!doctype html>
       <a class="menu-item" data-panel="logs" href="#logs"><span class="menu-icon">📜</span><span class="menu-label">运行日志</span></a>
     </nav>
     <div class="sidebar-footer">
-      <a class="sidebar-link" href="/" target="_blank"><span aria-hidden="true">🌐</span> 接口文档</a>
-      <a class="sidebar-link" href="/docs" target="_blank"><span aria-hidden="true">📘</span> Swagger</a>
+      <a class="sidebar-link" href="/"><span aria-hidden="true">🌐</span> 接口文档</a>
+      <a class="sidebar-link" href="/docs"><span aria-hidden="true">📘</span> Swagger</a>
       <a class="sidebar-link" href="/admin/logout"><span aria-hidden="true">🚪</span> 退出后台</a>
     </div>
   </aside>
@@ -650,8 +650,6 @@ _DASHBOARD_TMPL = """<!doctype html>
       <div class="topbar-actions">
         <span id="who" class="topbar-user"></span>
         <button type="button" class="btn btn-secondary btn-sm" onclick="refresh()">🔄 刷新</button>
-        <a class="btn btn-ghost btn-sm topbar-links" href="/" target="_blank">接口文档</a>
-        <a class="btn btn-ghost btn-sm topbar-links" href="/docs" target="_blank">Swagger</a>
         <a class="btn btn-ghost btn-sm" href="/admin/logout">退出登录</a>
       </div>
     </header>
@@ -864,7 +862,7 @@ _DASHBOARD_TMPL = """<!doctype html>
         <pre id="logs">（日志）</pre>
       </div>
     </section>
-      <footer class="admin-footer">LIT Gateway · 管理后台 · 当前视图每 8 秒自动刷新（页面隐藏时暂停） · <a href="/" target="_blank">接口文档</a> · <a href="/docs" target="_blank">Swagger</a></footer>
+      <footer class="admin-footer">LIT Gateway · 管理后台 · 当前视图每 8 秒自动刷新（页面隐藏时暂停） · <a href="/">接口文档</a> · <a href="/docs">Swagger</a></footer>
     </main>
   </div>
 </div>

@@ -406,16 +406,16 @@ def _render_html(app: Any, request: Request) -> str:
     nav: list[str] = []
     idx = 0
     for group in groups:
-        nav.append(f'<p class="doc-nav-title">{_h(group["tag"])}</p>')
-        cards.append(f'<section class="doc-section" id="g-{idx}">'
+        group_anchor = "g-%d" % idx
+        nav.append(f'<a class="doc-nav-link" href="#{group_anchor}">{_h(group["tag"])}</a>')
+        cards.append(f'<section class="doc-section" id="{group_anchor}">'
                      f'<h2 class="doc-heading">{_h(group["tag"])}</h2>')
         for ep in group["endpoints"]:
             eid = "ep-%d" % idx
             label = ep["summary"] or ep["path"]
             nav.append(
-                f'<a class="doc-nav-link" href="#{eid}" title="{_h(ep["method"] + " " + ep["path"])}">'
-                f'<span class="method method-{ep["method"].lower()}">{ep["method"]}</span> '
-                f'<span class="path">{_h(label)}</span></a>')
+                f'<a class="doc-nav-link doc-nav-sub" href="#{eid}" '
+                f'title="{_h(ep["method"] + " " + ep["path"])}">{_h(label)}</a>')
             cards.append(_render_endpoint(ep, idx, base))
             endpoints_js.append({
                 "id": idx,
@@ -478,6 +478,7 @@ a{color:inherit;text-decoration:none}
 .doc-nav-link:hover{background:#f9fafb;color:var(--text)}
 .doc-nav-link .method{flex:none;min-width:42px;padding:1px 5px;font-size:10.5px}
 .doc-nav-link .path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.doc-nav-sub{padding-left:24px;color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis}
 .doc-sidebar-footer{margin-top:auto;padding-top:14px}
 .doc-sidebar-footer .doc-nav-link{font-size:13px;padding:8px 10px}
 .doc-sidebar-footer .doc-nav-link span{margin-right:2px}
@@ -612,9 +613,8 @@ DOCS_TMPL = """<!doctype html>
     __NAV__
   </nav>
   <div class="doc-sidebar-footer">
-    <a class="doc-nav-link" href="/docs" target="_blank"><span aria-hidden="true">📘</span> Swagger 调试</a>
-    <a class="doc-nav-link" href="/admin" target="_blank"><span aria-hidden="true">⚙️</span> 后台管理</a>
-    <a class="doc-nav-link" href="/openapi.json" target="_blank"><span aria-hidden="true">🧩</span> OpenAPI</a>
+    <a class="doc-nav-link" href="/"><span aria-hidden="true">🏠</span> 首页</a>
+    <a class="doc-nav-link" href="/admin"><span aria-hidden="true">⚙️</span> 管理后台</a>
   </div>
 </aside>
 <div id="docs-nav-overlay" class="docs-nav-overlay" hidden></div>
@@ -622,10 +622,6 @@ DOCS_TMPL = """<!doctype html>
   <header class="docs-topbar">
     <button id="docs-menu-toggle" class="docs-menu-toggle" type="button" aria-label="打开文档目录" aria-controls="docs-nav" aria-expanded="false">☰</button>
     <div class="docs-topbar-title"><strong>API 文档</strong><span>__APP_NAME__ · v__VERSION__</span></div>
-    <div class="docs-topbar-actions">
-      <a class="btn btn-ghost" href="/admin" target="_blank">后台管理</a>
-      <a class="btn btn-ghost" href="/docs" target="_blank">Swagger</a>
-    </div>
   </header>
   <main id="main" class="docs-content">
     <article class="doc-content">
@@ -641,7 +637,7 @@ DOCS_TMPL = """<!doctype html>
         <input id="api-key" class="input" type="password" placeholder="输入 API Key（仅保存在本机浏览器）" autocomplete="off">
         <button class="btn btn-primary" onclick="saveKey()">保存 API Key</button>
       </div>
-      <p id="key-tip" class="doc-lead">API Key 可在后台 <a href="/admin" target="_blank">/admin</a> 登录后查看；在线调试时放到 <code class="code-inline">X-API-Key</code> 请求头。</p>
+      <p id="key-tip" class="doc-lead">API Key 可在后台 <a href="/admin">/admin</a> 登录后查看；在线调试时放到 <code class="code-inline">X-API-Key</code> 请求头。</p>
       __CARDS__
       <section class="doc-section" id="error-codes">
         <h2 class="doc-heading">通用错误码</h2>
@@ -655,7 +651,7 @@ DOCS_TMPL = """<!doctype html>
           </tbody>
         </table></div>
       </section>
-      <footer class="site-footer">接口文档由 OpenAPI 自动生成 · 多用户版 · <a href="/admin" target="_blank">后台管理</a> · <a href="/docs" target="_blank">Swagger</a></footer>
+      <footer class="site-footer">接口文档由 OpenAPI 自动生成 · 多用户版 · <a href="/admin">后台管理</a> · <a href="/docs">Swagger</a></footer>
     </article>
   </main>
 </div>
