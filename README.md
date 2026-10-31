@@ -324,6 +324,10 @@ curl -X POST "http://127.0.0.1:10381/api/v1/lljw/schedule" \
 
 ![前台接口文档](docs/api-docs.png)
 
+移动端（390px 视口）已适配：
+
+![移动端接口文档](docs/api-docs-mobile.png)
+
 * 由 FastAPI 的 OpenAPI 自动生成，新增接口后刷新页面自动出现；
 * 左侧按模块分组导航；每个接口包含参数表、curl 示例、响应示例；
 * **在线调试**：页面顶部填写自己的 API Key（只存 localStorage），修改参数后点「发送请求」；

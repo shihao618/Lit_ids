@@ -115,6 +115,9 @@ def test_root_info():
         assert CHECK_RECORDS in r.text
         assert "智能查寝" in r.text
         assert "```" not in r.text          # 代码块已渲染成 HTML
+        assert "@media(max-width:640px)" in r.text
+        assert "table-wrap" in r.text
+        assert "width=device-width" in r.text
         assert "请求体参数" in r.text
         assert "classCode" in r.text
         assert "checkStatus" in r.text

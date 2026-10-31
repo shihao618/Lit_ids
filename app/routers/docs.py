@@ -322,7 +322,7 @@ def _render_endpoint(ep: dict, idx: int, base: str) -> str:
     if desc:
         parts.append(f'<div class="desc">{desc}</div>')
     if ep["params"]:
-        parts.append('<table class="params"><thead><tr><th>参数</th><th>位置</th>'
+        parts.append('<div class="table-wrap"><table class="params"><thead><tr><th>参数</th><th>位置</th>'
                      '<th>类型</th><th>必填</th><th>默认值</th><th>说明</th></tr></thead><tbody>')
         for p in ep["params"]:
             type_display = p["type"]
@@ -334,10 +334,10 @@ def _render_endpoint(ep: dict, idx: int, base: str) -> str:
                              "是" if p["required"] else "否",
                              _h(p["default"]) if p["default"] is not None else "-",
                              _h(p["description"])))
-        parts.append("</tbody></table>")
+        parts.append("</tbody></table></div>")
     if ep.get("body_params"):
         parts.append('<div class="blk-title">请求体参数（JSON）</div>')
-        parts.append('<table class="params"><thead><tr><th>参数</th><th>类型</th>'
+        parts.append('<div class="table-wrap"><table class="params"><thead><tr><th>参数</th><th>类型</th>'
                      '<th>必填</th><th>默认值</th><th>说明</th></tr></thead><tbody>')
         for bp in ep["body_params"]:
             type_display = bp["type"]
@@ -349,7 +349,7 @@ def _render_endpoint(ep: dict, idx: int, base: str) -> str:
                              "是" if bp["required"] else "否",
                              _h(bp["default"]) if bp["default"] is not None else "-",
                              _h(bp["description"])))
-        parts.append("</tbody></table>")
+        parts.append("</tbody></table></div>")
     if ep["request"] is not None:
         body = json.dumps(ep["request"], ensure_ascii=False, indent=2)
         parts.append('<div class="blk"><div class="blk-title">请求体示例 '
@@ -489,7 +489,42 @@ pre.result{margin-top:10px;max-height:260px}
 .err-codes table{width:100%;border-collapse:collapse;font-size:12.5px}
 .err-codes td,.err-codes th{border-bottom:1px solid #eef2f8;padding:6px 8px;text-align:left}
 footer{max-width:1280px;margin:10px auto 30px;padding:0 18px;color:#8794ab;font-size:12px}
-@media(max-width:980px){.layout{flex-direction:column}nav.side{position:static;width:100%;max-height:none}}
+@media(max-width:980px){.layout{flex-direction:column;align-items:stretch}.layout>main{width:100%;min-width:0}.layout>nav.side{position:static;width:100%;max-height:none}}
+@media(max-width:640px){
+ body{-webkit-text-size-adjust:100%}
+ header{padding:10px 12px;flex-wrap:wrap;gap:8px;position:sticky}
+ header h1{font-size:15px;line-height:1.35}
+ header .links{display:flex;flex-wrap:wrap;gap:6px 14px;width:100%}
+ header .links a{margin-left:0;font-size:12px}
+ .layout{padding:12px;gap:12px}
+ nav.side{display:flex;flex-wrap:wrap;gap:4px;padding:10px;border-radius:8px}
+ nav.side .nav-title{width:100%;margin:2px 6px}
+ nav.side a{display:inline-block;max-width:100%;padding:5px 9px;background:#f3f6fc;border-radius:999px;font-size:12px;white-space:nowrap}
+ nav.side a span{width:auto;margin-right:5px}
+ .hero{padding:16px 14px;border-radius:10px;margin-bottom:12px}
+ .hero h2{font-size:18px}
+ .hero p{font-size:12.5px}
+ .hero .kv{gap:6px 14px;font-size:12px}
+ .hero .kv code{word-break:break-word;overflow-wrap:anywhere}
+ .authbox{padding:12px;gap:8px;flex-direction:column;align-items:stretch;margin-bottom:12px}
+ .authbox b{font-size:13px}
+ .authbox input{width:100%;min-width:0}
+ .authbox button{width:100%}
+ h2.group{font-size:15px;margin:18px 0 10px}
+ .endpoint{padding:14px 12px;border-radius:8px}
+ .endpoint h3{font-size:14px;margin-top:8px}
+ .endpoint .path{font-size:12.5px;word-break:break-all}
+ .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:8px 0}
+ table.params{min-width:560px;margin:0;font-size:12px}
+ .err-codes{padding:14px 12px}
+ .err-codes table{min-width:480px}
+ pre{font-size:11.5px;padding:10px;border-radius:6px}
+ .try-params{gap:8px}
+ .try-params label{width:100%}
+ .try-params input{flex:1;width:auto;min-width:0}
+ button.send{width:100%}
+ footer{padding:0 12px;font-size:11.5px}
+}
 """
 
 DOCS_TMPL = """<!doctype html>
@@ -514,17 +549,17 @@ DOCS_TMPL = """<!doctype html>
   <main>
     <div class="hero">
       <h2>洛阳理工学院统一认证 · 接口服务</h2>
-      <p>多用户版：每个网关用户拥有自己的统一认证账号、独立 CAS 会话和独立 API Key；当前业务接口为「智能查寝」。</p>
+      <p>多用户版：每个网关用户拥有自己的统一认证账号、独立 CAS 会话和独立 API Key；当前业务接口：智能查寝、教务课表。</p>
       <div class="kv">
         <span>Base URL：<code>__BASE__</code></span>
         <span>鉴权：<code>X-API-Key</code> 请求头</span>
-        <span>响应格式：<code>{"code":0,"msg":"ok","data":...,"meta":...}</code></span>
+        <span>响应格式：<code>{"code":0,"msg":"ok","data":...}</code></span>
       </div>
     </div>
 
     <div class="authbox">
       <b>API Key：</b>
-      <input id="api-key" type="password" placeholder="输入你的 API_KEY（仅保存在本机浏览器 localStorage）" autocomplete="off">
+      <input id="api-key" type="password" placeholder="输入 API_KEY（仅保存在本机浏览器）" autocomplete="off">
       <button onclick="saveKey()">保存</button>
       <span id="key-tip" class="note">每个用户有自己的 API Key（后台 <a href="/admin" target="_blank">/admin</a> 登录后查看）；在线调试时会把该 Key 放进 X-API-Key 请求头，页面本身不包含任何密钥。</span>
     </div>
@@ -533,13 +568,13 @@ DOCS_TMPL = """<!doctype html>
 
     <section class="err-codes">
       <h2>通用错误码</h2>
-      <table>
+      <div class="table-wrap"><table>
         <tr><th>HTTP / code</th><th>含义</th><th>处理建议</th></tr>
         <tr><td>401 + <code>{"detail":"无效的 API Key…"}</code></td><td>API Key 缺失或错误</td><td>在页面顶部填写正确的 API_KEY</td></tr>
         <tr><td>503 + <code>SESSION_ERROR</code></td><td>CAS 会话失效且自动登录失败 / 需要企业微信验证码</td><td>到 <a href="/admin">后台</a> 登录调试页处理（输入验证码或重新登录）</td></tr>
         <tr><td>403 + <code>FORBIDDEN</code></td><td>智能查寝角色无权限（如「学生组」）</td><td>使用有查寝权限的角色（如「班级管理员」）</td></tr>
             <tr><td>200 + <code>{"code":0}</code></td><td>成功</td><td>-</td></tr>
-      </table>
+      </table></div>
     </section>
     <footer>接口文档由 OpenAPI 自动生成 · 多用户版 · 配置自己的统一认证账号/查看 API Key 请访问 <a href="/admin">后台管理</a></footer>
   </main>
