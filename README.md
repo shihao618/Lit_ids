@@ -336,7 +336,7 @@ curl -X POST "http://127.0.0.1:10381/api/v1/lljw/schedule" \
 
 ## 6. 后台调试界面（`/admin`，菜单模式）
 
-用 `ADMIN_USERNAME / ADMIN_PASSWORD`（或管理员创建的用户）登录。
+用 `ADMIN_USERNAME / ADMIN_PASSWORD`（或管理员创建的用户）登录。界面参考 ClawBridge 管理后台：固定左侧菜单 + 顶部标题栏 + 统计卡片；移动端为汉堡抽屉菜单。
 
 ![后台概览](docs/admin-dashboard.png)
 

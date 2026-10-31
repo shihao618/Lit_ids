@@ -437,72 +437,105 @@ router.include_router(api)
 
 # ============================================================ HTML 模板
 _CSS = """
+:root{
+  --green:#07c160;--green-dark:#06ad56;--green-soft:#e8f8ef;--green-line:#c8eedb;
+  --bg:#f5f7fa;--card:#fff;--text:#1f2937;--text2:#4b5563;--muted:#8b95a5;
+  --border:#e5e7eb;--border2:#d1d5db;--danger:#e5484d;--danger-soft:#fdecec;
+  --warning:#d97706;--warning-soft:#fff7e6;--info-soft:#eff6ff;
+  --radius:10px;--radius-lg:14px;--shadow:0 1px 3px rgba(15,23,42,.06);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+}
 *{box-sizing:border-box}
-body{margin:0;font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;background:#f3f5f9;color:#222}
-header{background:#1f2a44;color:#fff;padding:14px 22px;display:flex;justify-content:space-between;align-items:center}
-header h1{font-size:17px;margin:0;font-weight:600}
-header a{color:#9fc3ff;text-decoration:none;margin-left:14px}
-main{max-width:1240px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media(max-width:980px){main{grid-template-columns:1fr}}
-.card{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(20,40,80,.08);padding:16px 18px}
-.card h2{font-size:15px;margin:0 0 12px;padding-bottom:8px;border-bottom:2px solid #eef2f8;color:#1f2a44}
-.full{grid-column:1/-1}
-label{display:block;font-size:13px;color:#556;margin:8px 0 4px}
-input,select,textarea{width:100%;padding:7px 9px;border:1px solid #d5dce8;border-radius:6px;font:inherit;background:#fbfcfe}
-textarea{min-height:64px;font-family:Consolas,monospace;font-size:12.5px}
-button{padding:8px 16px;border:0;border-radius:6px;background:#2f6fed;color:#fff;font:inherit;cursor:pointer;margin:10px 8px 0 0}
-button.gray{background:#6b7a93}
-button.green{background:#15905a}
-button.red{background:#c94040}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.65 var(--sans);-webkit-text-size-adjust:100%}
+a{color:inherit;text-decoration:none}
+.skip-link{position:fixed;top:-60px;left:12px;z-index:200;padding:8px 14px;border-radius:8px;background:var(--green);color:#fff;font-size:13px}
+.skip-link:focus{top:10px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:20px 22px;min-width:0}
+.card h2{font-size:15px;font-weight:700;margin:0 0 14px;padding-bottom:10px;border-bottom:1px solid var(--border);color:var(--text)}
+.card-subtitle{margin:4px 0 0;color:var(--text2);font-size:13px}
+label,.form-label{display:block;font-size:13px;color:var(--text2);margin:10px 0 5px;font-weight:500}
+input,select,textarea,.input{width:100%;padding:8px 10px;border:1px solid var(--border2);border-radius:8px;font:inherit;background:#fff;color:var(--text)}
+input:focus,select:focus,textarea:focus,.input:focus{outline:2px solid var(--green-line);border-color:var(--green);outline-offset:0}
+textarea{min-height:70px;font-family:var(--mono);font-size:12.5px}
+button,.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 14px;border:1px solid transparent;border-radius:8px;background:var(--green);color:#fff;font:inherit;font-size:13px;font-weight:600;cursor:pointer;margin:10px 8px 0 0;white-space:nowrap}
+button:hover,.btn:hover{background:var(--green-dark)}
+button.gray,.btn-secondary{border-color:var(--border);background:#fff;color:var(--text2);font-weight:500}
+button.gray:hover,.btn-secondary:hover{background:#f9fafb;color:var(--text)}
+button.green,.btn-primary{background:var(--green);color:#fff}
+button.red,.btn-danger{background:var(--danger);color:#fff}
+button.red:hover,.btn-danger:hover{background:#c23b40}
+.btn-ghost{border-color:var(--border);background:#fff;color:var(--text2);font-weight:500}
+.btn-ghost:hover{background:#f9fafb;color:var(--text)}
+.btn-sm{padding:6px 10px;font-size:12px;margin:0}
+.btn-block{width:100%;margin:12px 0 0}
 button:disabled{opacity:.55;cursor:not-allowed}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.kv{display:grid;grid-template-columns:110px 1fr;row-gap:6px;font-size:13px}
-.kv b{color:#667}
-pre{background:#0f172a;color:#d6e2f5;padding:12px;border-radius:8px;overflow:auto;max-height:340px;font-size:12.5px;margin:10px 0 0}
-#logs{max-height:280px}
-.msg{margin-top:10px;padding:8px 12px;border-radius:6px;background:#eef3ff;color:#1d4ed8;font-size:13px;display:none}
+.kv{display:grid;grid-template-columns:118px 1fr;row-gap:8px;font-size:13px;align-items:baseline}
+.kv b{color:var(--text2);font-weight:600}
+pre{background:#0f172a;color:#e2e8f0;padding:12px 14px;border-radius:10px;overflow:auto;max-height:360px;font:12.5px/1.6 var(--mono);margin:10px 0 0;white-space:pre-wrap;word-break:break-word}
+#logs{max-height:340px}
+.msg{margin-top:10px;padding:8px 12px;border-radius:8px;background:var(--info-soft);color:#1d4ed8;font-size:13px;display:none}
 .msg.show{display:block}
-.msg.err{background:#fdecec;color:#b91c1c}
-.msg.ok{background:#e8f8ef;color:#15803d}
-.ok-tag{color:#15803d;font-weight:600}
+.msg.err{background:var(--danger-soft);color:#b91c1c}
+.msg.ok{background:var(--green-soft);color:#047a3d}
+.ok-tag{color:#047a3d;font-weight:600}
 .bad-tag{color:#b91c1c;font-weight:600}
-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
-th,td{padding:5px 6px;border-bottom:1px solid #eef2f8;text-align:left;vertical-align:top}
-th{color:#667;font-weight:600}
-input[readonly]{background:#f0f3f8;color:#445}
-.login-wrap{max-width:390px;margin:110px auto;background:#fff;padding:30px;border-radius:12px;box-shadow:0 8px 30px rgba(20,40,80,.12)}
-.login-wrap h1{font-size:19px;margin:0 0 6px}
-.login-wrap p{color:#778;font-size:13px;margin:0 0 18px}
-.login-wrap input{margin-bottom:12px}
-.login-wrap button{width:100%;margin:2px 0 0}
-.err{color:#b91c1c;background:#fdecec;padding:8px 10px;border-radius:6px;font-size:13px;margin-bottom:10px}
-.note{font-size:12px;color:#889;margin-top:6px}
+.table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:10px;border:1px solid var(--border);border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin:0}
+th,td{padding:9px 11px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+th{background:#f9fafb;color:var(--muted);font-weight:600;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+input[readonly]{background:#f3f4f6;color:var(--text2)}
+.note{font-size:12px;color:var(--muted);margin-top:8px}
+.err{color:#b91c1c;background:var(--danger-soft);padding:8px 10px;border-radius:8px;font-size:13px;margin-bottom:12px}
+.badge-restart{background:var(--warning-soft);color:#8a5a00;border-radius:4px;padding:0 6px;font-size:11.5px;margin-left:6px;font-weight:400}
+#overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.74);color:#fff;z-index:99;align-items:center;justify-content:center;flex-direction:column;font-size:16px;gap:18px}
+#overlay.show{display:flex}
+.spinner{width:40px;height:40px;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.login-view{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-card{width:min(400px,100%);padding:30px 28px;border-radius:16px;box-shadow:0 18px 40px rgba(15,23,42,.10)}
+.login-icon{font-size:26px;margin-bottom:8px}
+.login-title{font-size:19px;font-weight:700;margin:0 0 6px}
+.login-hint{font-size:12px;color:var(--muted);margin-top:14px;line-height:1.6}
+.form-field{margin-bottom:12px}
+.form-hint{font-size:12px;color:var(--muted);margin-top:8px}
 @media(max-width:640px){
- header{padding:10px 12px;flex-wrap:wrap;gap:6px}
- header h1{font-size:15px}
- header>div{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;width:100%}
- header a{margin-left:0;font-size:12px}
- .login-wrap{margin:30px 12px;padding:22px}
+ .login-view{padding:16px}
+ .login-card{padding:22px 18px}
+ .card{padding:16px 14px;border-radius:12px}
+ .kv{grid-template-columns:92px 1fr;font-size:12.5px;row-gap:6px}
+ .row{gap:8px}
+ .row input,.row select{flex:1 1 140px;width:auto!important}
+ .row input[type=checkbox]{flex:0 0 auto;width:auto!important}
+ .row button{flex:1 1 auto}
+ pre{font-size:11.5px}
 }
 """
 
 _LOGIN_TMPL = """<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><title>__APP_NAME__ · 后台登录</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07C160">
 <style>__CSS__</style></head>
-<body>
-<div class="login-wrap">
-  <h1>__APP_NAME__ · 后台</h1>
-  <p>多用户版：每个用户登录后可配置自己的统一认证账号，并用各自的 API Key 调用接口。</p>
-  <!--ERROR-->
-  <form method="post" action="/admin/login">
-    <label>用户名</label>
-    <input type="text" name="username" autofocus autocomplete="username" placeholder="后台用户名">
-    <label>密码</label>
-    <input type="password" name="password" autocomplete="current-password" placeholder="后台密码">
-    <button type="submit">登 录</button>
-  </form>
-  <p class="note" style="margin-top:16px">默认管理员由环境变量 ADMIN_USERNAME / ADMIN_PASSWORD 引导创建。</p>
+<body class="page-admin">
+<div class="login-view">
+  <div class="card login-card">
+    <div class="login-icon" aria-hidden="true">🔐</div>
+    <h1 class="login-title">__APP_NAME__ · 后台</h1>
+    <p class="card-subtitle">多用户版：每个用户登录后可配置自己的统一认证账号，并用各自的 API Key 调用接口。</p>
+    <!--ERROR-->
+    <form method="post" action="/admin/login" class="form">
+      <div class="form-field"><label class="form-label" for="username">用户名</label>
+        <input class="input" id="username" type="text" name="username" autofocus autocomplete="username" placeholder="后台用户名"></div>
+      <div class="form-field"><label class="form-label" for="password">密码</label>
+        <input class="input" id="password" type="password" name="password" autocomplete="current-password" placeholder="后台密码"></div>
+      <button class="btn btn-primary btn-block" type="submit">登 录</button>
+    </form>
+    <p class="login-hint">默认管理员由环境变量 ADMIN_USERNAME / ADMIN_PASSWORD 引导创建。</p>
+  </div>
 </div>
 </body></html>"""
 
@@ -511,82 +544,126 @@ _DASHBOARD_TMPL = """<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>__CSS__</style>
 <style>
-.shell{display:flex;max-width:1280px;margin:18px auto;padding:0 16px;gap:16px;align-items:flex-start}
-.menu{width:190px;flex:none;background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(20,40,80,.08);padding:10px;position:sticky;top:72px}
-.menu-item{display:block;padding:9px 12px;border-radius:7px;color:#2b3852;text-decoration:none;cursor:pointer;font-size:13.5px;margin-bottom:2px;user-select:none}
-.menu-item:hover{background:#eef3fd}
-.menu-item.active{background:#2f6fed;color:#fff}
-.content{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px}
+.admin-shell{min-height:100vh}
+.admin-sidebar{position:fixed;top:0;left:0;bottom:0;z-index:40;width:232px;display:flex;flex-direction:column;padding:14px 10px;background:#fff;border-right:1px solid var(--border);overflow-y:auto}
+.sidebar-brand{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:2px 6px 12px}
+.brand{display:inline-flex;align-items:center;gap:8px;min-width:0;color:var(--text);font-weight:700}
+.brand-icon{width:28px;height:28px;border-radius:8px;flex:none}
+.brand-name{font-size:16px;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+.brand-tag{display:inline-block;padding:1px 9px;border-radius:999px;background:var(--green-soft);color:#047a3d;font-size:11px;font-weight:600;margin-left:36px}
+.admin-menu{display:flex;flex-direction:column;gap:2px;margin-top:8px}
+.menu-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--text);font-size:13.5px;cursor:pointer;white-space:nowrap}
+.menu-item:hover{background:#f9fafb}
+.menu-item.active{background:var(--green-soft);color:#047a3d;font-weight:600}
+.menu-icon{width:18px;text-align:center;flex:none}
+.sidebar-footer{margin-top:auto;padding-top:12px;border-top:1px solid var(--border)}
+.sidebar-link{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:8px;color:var(--text2);font-size:13px}
+.sidebar-link:hover{background:#f9fafb;color:var(--text)}
+.sidebar-overlay{position:fixed;inset:0;z-index:110;background:rgba(15,23,42,.45)}
+.sidebar-overlay[hidden]{display:none!important}
+.admin-main{margin-left:232px;min-height:100vh;display:flex;flex-direction:column;min-width:0}
+.admin-topbar-bar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;padding:13px 24px;background:rgba(255,255,255,.94);border-bottom:1px solid var(--border);backdrop-filter:blur(6px)}
+.admin-menu-toggle{display:none;flex:none;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid var(--border);border-radius:10px;background:#fff;color:var(--text);font-size:17px;line-height:1;cursor:pointer;margin:0;padding:0}
+.admin-topbar-title{flex:1;min-width:0}
+.page-title{font-size:20px;font-weight:700;margin:0;line-height:1.3}
+.page-subtitle{font-size:12px;color:var(--muted);margin:2px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topbar-actions{display:flex;align-items:center;gap:8px;flex:none}
+.topbar-user{font-size:13px;color:var(--text2);margin-right:4px}
+.admin-content{flex:1;width:100%;max-width:1240px;margin:0 auto;padding:20px 24px 40px}
 .panel{display:none;flex-direction:column;gap:16px}
 .panel.active{display:flex}
 .card-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.menu-toggle{display:none}
-.menu-backdrop{display:none}
-.menu-mobile-head{display:none}
+.admin-footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted);font-size:12px;text-align:center}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:4px}
+.stat-card{display:flex;flex-direction:column;gap:2px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:#fff;box-shadow:var(--shadow);min-width:0}
+.stat-head{display:flex;align-items:center;gap:8px;color:var(--text2);font-size:12px}
+.stat-icon{font-size:15px}
+.stat-value{font-size:20px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:900px){
- header{flex-wrap:wrap;gap:8px;padding:12px 14px}
- .menu-toggle{display:inline-flex;align-items:center;justify-content:center;width:auto;margin:0;padding:7px 12px;border-radius:8px;background:rgba(255,255,255,.14);color:#fff;font-size:16px;line-height:1;cursor:pointer}
- header h1{font-size:16px;flex:1;min-width:0}
- header .header-links{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
- header a{margin-left:0;font-size:12.5px}
- .shell{display:block;padding:0 12px;margin:12px auto}
- .content{width:100%;min-width:0;gap:12px}
+ .admin-main{margin-left:0}
+ .admin-sidebar{width:min(300px,85vw);z-index:120;padding:14px 12px;transform:translateX(-100%);visibility:hidden;transition:transform .2s ease,visibility .2s ease;box-shadow:none}
+ body.sidebar-open .admin-sidebar{transform:none;visibility:visible;box-shadow:0 18px 40px rgba(15,23,42,.2)}
+ .admin-menu-toggle{display:inline-flex}
+ .admin-topbar-bar{padding:10px 14px;gap:8px}
+ .page-title{font-size:17px}
+ .page-subtitle{display:none}
+ .topbar-user{display:none}
+ .topbar-actions .topbar-links{display:none}
+ .admin-content{padding:14px 12px 28px}
  .card-row{grid-template-columns:1fr}
- .menu{position:fixed;top:0;left:0;bottom:0;width:280px;max-width:82vw;z-index:60;border-radius:0;box-shadow:8px 0 30px rgba(10,20,40,.25);transform:translateX(-105%);transition:transform .25s ease;overflow-y:auto;padding:14px}
- .menu.open{transform:none}
- .menu-mobile-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px;font-size:14px;color:#1f2a44;font-weight:600}
- .menu-close{width:auto;margin:0;padding:4px 10px;border:0;border-radius:6px;background:#eef3fd;color:#2b3852;font-size:18px;line-height:1;cursor:pointer}
- .menu-item{display:block;margin:0 0 2px}
- .menu-backdrop{display:none;position:fixed;inset:0;z-index:55;background:rgba(15,23,42,.45);border:0;padding:0;cursor:pointer}
- .menu-backdrop.show{display:block}
+ .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:640px){
- header{padding:10px 12px}
- header h1{font-size:15px}
- .shell{padding:0 10px;margin:10px auto;gap:12px}
- .content{gap:12px}
- .card{padding:12px;border-radius:8px;min-width:0}
- .card h2{font-size:14px;margin-bottom:8px}
- .kv{grid-template-columns:92px 1fr;font-size:12.5px;row-gap:5px}
- .row{gap:8px}
- .row input,.row select{flex:1 1 140px;width:auto!important}
- .row input[type=checkbox]{flex:0 0 auto;width:auto!important}
- .row button{flex:1 1 auto}
- .card-row{grid-template-columns:1fr}
- .table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:8px}
- #users-table{min-width:700px;margin-top:0}
+ .admin-content{padding:12px 10px 24px}
+ .card{padding:14px 12px}
+ .card h2{font-size:14px}
+ .stats-grid{gap:8px}
+ .stat-card{padding:12px}
+ .stat-value{font-size:18px}
+ #users-table{min-width:760px}
  #users-table th,#users-table td{white-space:nowrap}
- pre{font-size:11.5px;max-height:320px;white-space:pre-wrap;word-break:break-word}
- #logs{max-height:340px}
+ .table-wrap{overflow-x:auto}
+ pre{font-size:11.5px;max-height:340px}
+ #logs{max-height:360px}
 }
-.badge-restart{background:#fff3cd;color:#8a6d3b;border-radius:4px;padding:0 6px;font-size:11.5px;margin-left:6px;font-weight:400}
-#overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.74);color:#fff;z-index:99;align-items:center;justify-content:center;flex-direction:column;font-size:16px;gap:18px}
-#overlay.show{display:flex}
-.spinner{width:40px;height:40px;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
 </style></head>
-<body>
-<header>
-  <button type="button" class="menu-toggle" id="menu-toggle" aria-label="打开菜单" aria-controls="admin-menu" aria-expanded="false">☰</button>
-  <h1>__APP_NAME__ · 后台</h1>
-  <div class="header-links"><span id="who" style="color:#cbd8ee"></span><a href="/" target="_blank">接口文档</a><a href="/docs" target="_blank">Swagger</a><a href="/admin/logout">退出后台</a></div>
-</header>
-<button type="button" class="menu-backdrop" id="menu-backdrop" aria-label="关闭菜单"></button>
-<div class="shell">
-  <aside class="menu" id="admin-menu">
-    <div class="menu-mobile-head"><span>菜单</span><button type="button" class="menu-close" id="menu-close" aria-label="关闭菜单">×</button></div>
-    <a class="menu-item active" data-panel="overview">📊 概览</a>
-    <a class="menu-item" data-panel="account">👤 我的账号</a>
-    <a class="menu-item" data-panel="cas">🔐 统一认证</a>
-    <a class="menu-item" data-panel="login">🧪 登录调试</a>
-    <a class="menu-item" data-panel="test">🔧 接口自测</a>
-    <a class="menu-item admin-only" data-panel="users" style="display:none">👥 用户管理</a>
-    <a class="menu-item admin-only" data-panel="settings" style="display:none">⚙️ 系统设置</a>
-    <a class="menu-item" data-panel="logs">📜 运行日志</a>
+<body class="page-admin">
+<a class="skip-link" href="#main">跳到主要内容</a>
+<div class="admin-shell">
+  <aside id="admin-sidebar" class="admin-sidebar" aria-label="后台菜单">
+    <div class="sidebar-brand">
+      <a class="brand" href="/" aria-label="__APP_NAME__ 首页">
+        <svg class="brand-icon" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+          <rect width="64" height="64" rx="14" fill="#07C160"></rect>
+          <path d="M22 16h20a10 10 0 0 1 10 10v8a10 10 0 0 1-10 10H34l-9 8v-8h-3a10 10 0 0 1-10-10v-8a10 10 0 0 1 10-10z" fill="#ffffff"></path>
+          <circle cx="27" cy="30" r="3" fill="#07C160"></circle>
+          <circle cx="38" cy="30" r="3" fill="#07C160"></circle>
+        </svg>
+        <span class="brand-name">LIT Gateway</span>
+      </a>
+      <span class="brand-tag">管理后台</span>
+    </div>
+    <nav id="admin-menu" class="admin-menu" aria-label="后台菜单">
+      <a class="menu-item active" data-panel="overview" href="#overview"><span class="menu-icon">📊</span><span class="menu-label">概览</span></a>
+      <a class="menu-item" data-panel="account" href="#account"><span class="menu-icon">👤</span><span class="menu-label">我的账号</span></a>
+      <a class="menu-item" data-panel="cas" href="#cas"><span class="menu-icon">🔐</span><span class="menu-label">统一认证</span></a>
+      <a class="menu-item" data-panel="login" href="#login"><span class="menu-icon">🧪</span><span class="menu-label">登录调试</span></a>
+      <a class="menu-item" data-panel="test" href="#test"><span class="menu-icon">🔧</span><span class="menu-label">接口自测</span></a>
+      <a class="menu-item admin-only" data-panel="users" href="#users" style="display:none"><span class="menu-icon">👥</span><span class="menu-label">用户管理</span></a>
+      <a class="menu-item admin-only" data-panel="settings" href="#settings" style="display:none"><span class="menu-icon">⚙️</span><span class="menu-label">系统设置</span></a>
+      <a class="menu-item" data-panel="logs" href="#logs"><span class="menu-icon">📜</span><span class="menu-label">运行日志</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <a class="sidebar-link" href="/" target="_blank"><span aria-hidden="true">🌐</span> 接口文档</a>
+      <a class="sidebar-link" href="/docs" target="_blank"><span aria-hidden="true">📘</span> Swagger</a>
+      <a class="sidebar-link" href="/admin/logout"><span aria-hidden="true">🚪</span> 退出后台</a>
+    </div>
   </aside>
-  <main class="content">
+  <div id="sidebar-overlay" class="sidebar-overlay" hidden></div>
+  <div class="admin-main">
+    <header class="admin-topbar-bar">
+      <button id="btn-sidebar-toggle" class="admin-menu-toggle" type="button" aria-label="打开菜单" aria-controls="admin-sidebar" aria-expanded="false">☰</button>
+      <div class="admin-topbar-title">
+        <h1 id="view-title" class="page-title">概览</h1>
+        <p id="view-subtitle" class="page-subtitle">当前用户与会话状态</p>
+      </div>
+      <div class="topbar-actions">
+        <span id="who" class="topbar-user"></span>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="refresh()">🔄 刷新</button>
+        <a class="btn btn-ghost btn-sm topbar-links" href="/" target="_blank">接口文档</a>
+        <a class="btn btn-ghost btn-sm topbar-links" href="/docs" target="_blank">Swagger</a>
+        <a class="btn btn-ghost btn-sm" href="/admin/logout">退出登录</a>
+      </div>
+    </header>
+    <main id="main" class="admin-content">
     <!-- 概览 -->
     <section class="panel active" id="panel-overview">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-head"><span class="stat-icon">👤</span>后台用户</div><div class="stat-value" id="stat-user">-</div></div>
+        <div class="stat-card"><div class="stat-head"><span class="stat-icon">🔐</span>统一认证会话</div><div class="stat-value" id="stat-session">-</div></div>
+        <div class="stat-card"><div class="stat-head"><span class="stat-icon">👥</span>用户数</div><div class="stat-value" id="stat-users">-</div></div>
+        <div class="stat-card"><div class="stat-head"><span class="stat-icon">✅</span>已配置统一认证</div><div class="stat-value" id="stat-cas">-</div></div>
+      </div>
       <div class="card">
         <h2>当前用户</h2>
         <div class="kv">
@@ -787,7 +864,9 @@ _DASHBOARD_TMPL = """<!doctype html>
         <pre id="logs">（日志）</pre>
       </div>
     </section>
-  </main>
+      <footer class="admin-footer">LIT Gateway · 管理后台 · 当前视图每 8 秒自动刷新（页面隐藏时暂停） · <a href="/" target="_blank">接口文档</a> · <a href="/docs" target="_blank">Swagger</a></footer>
+    </main>
+  </div>
 </div>
 <div id="overlay"><div class="spinner"></div><div id="overlay-text">处理中…</div></div>
 <script>
@@ -800,22 +879,32 @@ function fmt(v){return (v===undefined||v===null||v==='')?'-':esc(v);}
 let IS_ADMIN=false, CURRENT='overview';
 let casDirty=false;   // 统一认证表单是否被用户修改（避免 5s 自动刷新覆盖输入）
 
+const PANEL_META={
+  overview:['概览','当前用户与会话状态'],
+  account:['我的账号','API Key 与后台密码'],
+  cas:['我的统一认证账号','账号 / 密码 / 设备指纹'],
+  login:['登录调试','CAS 登录与企业微信验证码'],
+  test:['接口自测','使用当前登录用户自己的会话'],
+  users:['用户管理','创建 / 重置 / 删除网关用户'],
+  settings:['系统设置','运行参数修改与容器重启'],
+  logs:['运行日志','最近运行日志']
+};
 function openMenu(){
-  const menu=$('admin-menu'), backdrop=$('menu-backdrop'), btn=$('menu-toggle');
-  if(menu) menu.classList.add('open');
-  if(backdrop) backdrop.classList.add('show');
-  if(btn) btn.setAttribute('aria-expanded','true');
+  document.body.classList.add('sidebar-open');
+  const overlay=$('sidebar-overlay');
+  if(overlay) overlay.hidden=false;
+  $('btn-sidebar-toggle')?.setAttribute('aria-expanded','true');
 }
 function closeMenu(){
-  const menu=$('admin-menu'), backdrop=$('menu-backdrop'), btn=$('menu-toggle');
-  if(menu) menu.classList.remove('open');
-  if(backdrop) backdrop.classList.remove('show');
-  if(btn) btn.setAttribute('aria-expanded','false');
+  document.body.classList.remove('sidebar-open');
+  const overlay=$('sidebar-overlay');
+  if(overlay) overlay.hidden=true;
+  $('btn-sidebar-toggle')?.setAttribute('aria-expanded','false');
 }
-function toggleMenu(){const m=$('admin-menu');if(m&&m.classList.contains('open'))closeMenu();else openMenu();}
-$('menu-toggle')?.addEventListener('click',toggleMenu);
-$('menu-backdrop')?.addEventListener('click',closeMenu);
-$('menu-close')?.addEventListener('click',closeMenu);
+$('btn-sidebar-toggle')?.addEventListener('click',()=>{
+  document.body.classList.contains('sidebar-open')?closeMenu():openMenu();
+});
+$('sidebar-overlay')?.addEventListener('click',closeMenu);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
 window.addEventListener('resize',()=>{if(window.innerWidth>900)closeMenu();});
 
@@ -826,6 +915,9 @@ function gotoPanel(name){
   const item=document.querySelector('.menu-item[data-panel="'+name+'"]');
   if(item&&item.classList.contains('admin-only')&&!IS_ADMIN){name='overview';}
   CURRENT=name;
+  const meta=PANEL_META[name]||PANEL_META.overview;
+  $('view-title').textContent=meta[0];
+  $('view-subtitle').textContent=meta[1];
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+name));
   document.querySelectorAll('.menu-item').forEach(a=>a.classList.toggle('active',a.dataset.panel===name));
   history.replaceState(null,'','#'+name);
@@ -843,6 +935,11 @@ async function refresh(){
   if(!st) return;
   IS_ADMIN=!!st.is_admin;
   $('who').textContent=st.user.username||'';
+  const _u=st.user||{}, _s=st.session||{};
+  $('stat-user').textContent=fmt(_u.username||'-');
+  $('stat-session').textContent=(_s.logged_in?'已登录':'未登录');
+  $('stat-users').textContent=(st.users?st.users.length:1);
+  $('stat-cas').textContent=(st.users?st.users.filter(u=>u.cas_username).length:(_u.cas_username?1:0));
   $('u-name').textContent=fmt(st.user.username);
   $('u-role').innerHTML=st.user.role==='admin'?'<span class="ok-tag">管理员</span>':'普通用户';
   $('u-cas').textContent=fmt(st.user.cas_username);
@@ -878,7 +975,7 @@ async function refresh(){
   $('mfa-area').style.display=s.pending_mfa?'block':'none';
   const dbg=s.debug||{}; $('login-stage').textContent=dbg.stage?('最近阶段: '+dbg.stage+(dbg.at?' @ '+dbg.at:'')):'';
   renderCaptcha(dbg.captcha||[]);
-  document.querySelectorAll('.admin-only').forEach(el=>{el.style.display=IS_ADMIN?'block':'none';});
+  document.querySelectorAll('.admin-only').forEach(el=>{el.style.display=IS_ADMIN?'flex':'none';});
   $('overview-admin').style.display=IS_ADMIN?'block':'none';
   if(IS_ADMIN&&st.users){
     $('ov-users').textContent=st.users.length;

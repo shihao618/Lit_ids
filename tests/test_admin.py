@@ -226,8 +226,13 @@ def test_admin_mobile_css_and_table_wrap():
         assert 'class="table-wrap"' in html
         assert "users-table" in html
         assert "width=device-width" in html
-        assert "menu-toggle" in html and "menu-backdrop" in html
-        assert 'aria-controls="admin-menu"' in html
+        assert "btn-sidebar-toggle" in html and "sidebar-overlay" in html
+        assert 'aria-controls="admin-sidebar"' in html
+        assert "admin-shell" in html
+        assert "admin-sidebar" in html
+        assert "admin-topbar-bar" in html
+        assert "stats-grid" in html
+        assert "page-admin" in html
 
 
 def test_admin_schedule_selftest():
