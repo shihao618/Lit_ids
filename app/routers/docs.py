@@ -620,7 +620,6 @@ DOCS_TMPL = """<!doctype html>
     __NAV__
   </nav>
   <div class="doc-sidebar-footer">
-    <a class="doc-nav-link" href="/"><span aria-hidden="true">🏠</span> 首页</a>
     <a class="doc-nav-link" href="/admin"><span aria-hidden="true">⚙️</span> 管理后台</a>
   </div>
 </aside>

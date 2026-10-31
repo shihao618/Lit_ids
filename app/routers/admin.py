@@ -635,7 +635,6 @@ _DASHBOARD_TMPL = """<!doctype html>
     </nav>
     <div class="sidebar-footer">
       <a class="sidebar-link" href="/"><span aria-hidden="true">🌐</span> 接口文档</a>
-      <a class="sidebar-link" href="/admin/logout"><span aria-hidden="true">🚪</span> 退出后台</a>
     </div>
   </aside>
   <div id="sidebar-overlay" class="sidebar-overlay" hidden></div>
