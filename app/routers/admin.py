@@ -83,6 +83,7 @@ async def admin_login(request: Request):
     user = store.check_password(username, password) if username else None
     if not user:
         html = LOGIN_HTML.replace("<!--ERROR-->", '<div class="err">用户名或密码错误</div>')
+        html = html.replace("__APP_NAME__", html_lib.escape(_app_name(request)))
         return HTMLResponse(html, status_code=401)
     resp = RedirectResponse("/admin", status_code=303)
     resp.set_cookie(COOKIE_NAME, make_token(request.app.state.settings, user["id"]),
@@ -476,6 +477,13 @@ input[readonly]{background:#f0f3f8;color:#445}
 .login-wrap button{width:100%;margin:2px 0 0}
 .err{color:#b91c1c;background:#fdecec;padding:8px 10px;border-radius:6px;font-size:13px;margin-bottom:10px}
 .note{font-size:12px;color:#889;margin-top:6px}
+@media(max-width:640px){
+ header{padding:10px 12px;flex-wrap:wrap;gap:6px}
+ header h1{font-size:15px}
+ header>div{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;width:100%}
+ header a{margin-left:0;font-size:12px}
+ .login-wrap{margin:30px 12px;padding:22px}
+}
 """
 
 _LOGIN_TMPL = """<!doctype html>
@@ -512,7 +520,26 @@ _DASHBOARD_TMPL = """<!doctype html>
 .panel{display:none;flex-direction:column;gap:16px}
 .panel.active{display:flex}
 .card-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media(max-width:900px){.shell{flex-direction:column}.menu{width:100%;position:static;display:flex;flex-wrap:wrap}.card-row{grid-template-columns:1fr}}
+@media(max-width:900px){.shell{flex-direction:column;align-items:stretch}.menu{width:100%;position:static;display:flex;flex-wrap:wrap}.content{width:100%;min-width:0}.card-row{grid-template-columns:1fr}}
+@media(max-width:640px){
+ .shell{padding:0 10px;margin:12px auto;gap:12px}
+ .menu{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px;border-radius:8px;overflow:visible}
+ .menu-item{flex:none;margin:0;padding:8px 10px;font-size:12.5px;white-space:normal}
+ .content{gap:12px}
+ .card{padding:12px;border-radius:8px;min-width:0}
+ .card h2{font-size:14px;margin-bottom:8px}
+ .kv{grid-template-columns:92px 1fr;font-size:12.5px;row-gap:5px}
+ .row{gap:8px}
+ .row input,.row select{flex:1 1 140px;width:auto!important}
+ .row input[type=checkbox]{flex:0 0 auto;width:auto!important}
+ .row button{flex:1 1 auto}
+ .card-row{grid-template-columns:1fr}
+ .table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:8px}
+ #users-table{min-width:700px;margin-top:0}
+ #users-table th,#users-table td{white-space:nowrap}
+ pre{font-size:11.5px;max-height:320px;white-space:pre-wrap;word-break:break-word}
+ #logs{max-height:340px}
+}
 .badge-restart{background:#fff3cd;color:#8a6d3b;border-radius:4px;padding:0 6px;font-size:11.5px;margin-left:6px;font-weight:400}
 #overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.74);color:#fff;z-index:99;align-items:center;justify-content:center;flex-direction:column;font-size:16px;gap:18px}
 #overlay.show{display:flex}
@@ -690,10 +717,10 @@ _DASHBOARD_TMPL = """<!doctype html>
           <button type="button" class="green" onclick="createUser()">创建用户</button>
         </div>
         <div id="users-msg" class="msg"></div>
-        <table id="users-table">
+        <div class="table-wrap"><table id="users-table">
           <thead><tr><th>用户名</th><th>角色</th><th>统一认证账号</th><th>API Key</th><th>创建时间</th><th>操作</th></tr></thead>
           <tbody id="users-tbody"></tbody>
-        </table>
+        </table></div>
       </div>
     </section>
 
@@ -822,7 +849,7 @@ function renderCaptcha(list){
   if(!list.length){$('captcha-debug').textContent='';return;}
   let h='<table><tr><th>#</th><th>模板</th><th>randomX</th><th>残差</th><th>峰值比</th><th>结果</th></tr>';
   for(const c of list){h+='<tr><td>'+c.attempt+'</td><td>'+fmt(c.style)+'</td><td>'+fmt(c.random_x)+'</td><td>'+fmt(c.residual)+'</td><td>'+fmt(c.margin)+'</td><td>'+(c.accepted?'✅ 采用':'跳过'+(c.reason?('（'+esc(c.reason)+'）'):''))+'</td></tr>';}
-  $('captcha-debug').innerHTML='<div style="margin-top:12px"><b>滑块验证码识别过程</b>'+h+'</table></div>';
+  $('captcha-debug').innerHTML='<div style="margin-top:12px"><b>滑块验证码识别过程</b><div class="table-wrap">'+h+'</div></div>';
 }
 function renderUsers(users){
   let h='';

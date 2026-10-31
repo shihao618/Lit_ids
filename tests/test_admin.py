@@ -217,6 +217,17 @@ def test_admin_interface_selftest():
         assert body["ok"] is True and body["data"]["code"] == 0
 
 
+def test_admin_mobile_css_and_table_wrap():
+    """后台移动端：响应式 CSS + 用户管理表格横向滚动容器."""
+    with _client() as c:
+        _login(c)
+        html = c.get("/admin").text
+        assert "@media(max-width:640px)" in html
+        assert 'class="table-wrap"' in html
+        assert "users-table" in html
+        assert "width=device-width" in html
+
+
 def test_admin_schedule_selftest():
     """后台接口自测：教务课表查询（使用当前登录管理员自己的会话）."""
     with _client() as c:
