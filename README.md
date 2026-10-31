@@ -341,7 +341,7 @@ curl -X POST "http://127.0.0.1:10381/api/v1/lljw/schedule" \
 
 ![后台系统设置](docs/admin-settings.png)
 
-移动端（390px 视口）已适配（菜单两列、表单全宽、用户表格横向滚动）：
+移动端（390px 视口）已适配：菜单为汉堡抽屉式，表单全宽，用户表格横向滚动：
 
 ![后台移动端](docs/admin-mobile.png)
 

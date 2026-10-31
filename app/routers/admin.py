@@ -520,11 +520,30 @@ _DASHBOARD_TMPL = """<!doctype html>
 .panel{display:none;flex-direction:column;gap:16px}
 .panel.active{display:flex}
 .card-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media(max-width:900px){.shell{flex-direction:column;align-items:stretch}.menu{width:100%;position:static;display:flex;flex-wrap:wrap}.content{width:100%;min-width:0}.card-row{grid-template-columns:1fr}}
+.menu-toggle{display:none}
+.menu-backdrop{display:none}
+.menu-mobile-head{display:none}
+@media(max-width:900px){
+ header{flex-wrap:wrap;gap:8px;padding:12px 14px}
+ .menu-toggle{display:inline-flex;align-items:center;justify-content:center;width:auto;margin:0;padding:7px 12px;border-radius:8px;background:rgba(255,255,255,.14);color:#fff;font-size:16px;line-height:1;cursor:pointer}
+ header h1{font-size:16px;flex:1;min-width:0}
+ header .header-links{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
+ header a{margin-left:0;font-size:12.5px}
+ .shell{display:block;padding:0 12px;margin:12px auto}
+ .content{width:100%;min-width:0;gap:12px}
+ .card-row{grid-template-columns:1fr}
+ .menu{position:fixed;top:0;left:0;bottom:0;width:280px;max-width:82vw;z-index:60;border-radius:0;box-shadow:8px 0 30px rgba(10,20,40,.25);transform:translateX(-105%);transition:transform .25s ease;overflow-y:auto;padding:14px}
+ .menu.open{transform:none}
+ .menu-mobile-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px;font-size:14px;color:#1f2a44;font-weight:600}
+ .menu-close{width:auto;margin:0;padding:4px 10px;border:0;border-radius:6px;background:#eef3fd;color:#2b3852;font-size:18px;line-height:1;cursor:pointer}
+ .menu-item{display:block;margin:0 0 2px}
+ .menu-backdrop{display:none;position:fixed;inset:0;z-index:55;background:rgba(15,23,42,.45);border:0;padding:0;cursor:pointer}
+ .menu-backdrop.show{display:block}
+}
 @media(max-width:640px){
- .shell{padding:0 10px;margin:12px auto;gap:12px}
- .menu{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px;border-radius:8px;overflow:visible}
- .menu-item{flex:none;margin:0;padding:8px 10px;font-size:12.5px;white-space:normal}
+ header{padding:10px 12px}
+ header h1{font-size:15px}
+ .shell{padding:0 10px;margin:10px auto;gap:12px}
  .content{gap:12px}
  .card{padding:12px;border-radius:8px;min-width:0}
  .card h2{font-size:14px;margin-bottom:8px}
@@ -548,11 +567,14 @@ _DASHBOARD_TMPL = """<!doctype html>
 </style></head>
 <body>
 <header>
+  <button type="button" class="menu-toggle" id="menu-toggle" aria-label="打开菜单" aria-controls="admin-menu" aria-expanded="false">☰</button>
   <h1>__APP_NAME__ · 后台</h1>
-  <div><span id="who" style="color:#cbd8ee"></span><a href="/" target="_blank">接口文档</a><a href="/docs" target="_blank">Swagger</a><a href="/admin/logout">退出后台</a></div>
+  <div class="header-links"><span id="who" style="color:#cbd8ee"></span><a href="/" target="_blank">接口文档</a><a href="/docs" target="_blank">Swagger</a><a href="/admin/logout">退出后台</a></div>
 </header>
+<button type="button" class="menu-backdrop" id="menu-backdrop" aria-label="关闭菜单"></button>
 <div class="shell">
-  <aside class="menu">
+  <aside class="menu" id="admin-menu">
+    <div class="menu-mobile-head"><span>菜单</span><button type="button" class="menu-close" id="menu-close" aria-label="关闭菜单">×</button></div>
     <a class="menu-item active" data-panel="overview">📊 概览</a>
     <a class="menu-item" data-panel="account">👤 我的账号</a>
     <a class="menu-item" data-panel="cas">🔐 统一认证</a>
@@ -778,6 +800,25 @@ function fmt(v){return (v===undefined||v===null||v==='')?'-':esc(v);}
 let IS_ADMIN=false, CURRENT='overview';
 let casDirty=false;   // 统一认证表单是否被用户修改（避免 5s 自动刷新覆盖输入）
 
+function openMenu(){
+  const menu=$('admin-menu'), backdrop=$('menu-backdrop'), btn=$('menu-toggle');
+  if(menu) menu.classList.add('open');
+  if(backdrop) backdrop.classList.add('show');
+  if(btn) btn.setAttribute('aria-expanded','true');
+}
+function closeMenu(){
+  const menu=$('admin-menu'), backdrop=$('menu-backdrop'), btn=$('menu-toggle');
+  if(menu) menu.classList.remove('open');
+  if(backdrop) backdrop.classList.remove('show');
+  if(btn) btn.setAttribute('aria-expanded','false');
+}
+function toggleMenu(){const m=$('admin-menu');if(m&&m.classList.contains('open'))closeMenu();else openMenu();}
+$('menu-toggle')?.addEventListener('click',toggleMenu);
+$('menu-backdrop')?.addEventListener('click',closeMenu);
+$('menu-close')?.addEventListener('click',closeMenu);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
+window.addEventListener('resize',()=>{if(window.innerWidth>900)closeMenu();});
+
 function gotoPanel(name){
   if(!name) name='overview';
   const panel=$('panel-'+name);
@@ -791,6 +832,7 @@ function gotoPanel(name){
   if(name==='logs') loadLogs();
   if(name==='settings'&&IS_ADMIN) loadSystemSettings();
   if(name==='users'&&IS_ADMIN) refresh();
+  closeMenu();
 }
 document.querySelectorAll('.menu-item').forEach(a=>{a.addEventListener('click',()=>gotoPanel(a.dataset.panel));});
 window.addEventListener('hashchange',()=>gotoPanel((location.hash||'#overview').slice(1)));
