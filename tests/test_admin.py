@@ -233,6 +233,8 @@ def test_admin_mobile_css_and_table_wrap():
         assert "admin-topbar-bar" in html
         assert "stats-grid" in html
         assert "page-admin" in html
+        assert "#users-table td" in html
+        assert "margin:0 6px 0 0" in html
         assert 'target="_blank"' not in html
 
 

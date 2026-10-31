@@ -579,6 +579,8 @@ _DASHBOARD_TMPL = """<!doctype html>
 .stat-head{display:flex;align-items:center;gap:8px;color:var(--text2);font-size:12px}
 .stat-icon{font-size:15px}
 .stat-value{font-size:20px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#users-table td{vertical-align:middle}
+#users-table td button{margin:0 6px 0 0}
 @media(max-width:900px){
  .admin-main{margin-left:0}
  .admin-sidebar{width:min(300px,85vw);z-index:120;padding:14px 12px;transform:translateX(-100%);visibility:hidden;transition:transform .2s ease,visibility .2s ease;box-shadow:none}
