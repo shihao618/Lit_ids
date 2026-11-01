@@ -46,7 +46,7 @@ from ..logbuf import log_buffer
 from ..restart import schedule_restart
 from ..schemas import (
     AdminCasIn, AdminLoginIn, AdminMfaIn, AdminPasswordIn, AdminRoleIn,
-    CasSettingsIn, SelfPasswordIn, SystemSettingsIn, UserCreateIn,
+    CasSettingsIn, LocationCheckinIn, SelfPasswordIn, SystemSettingsIn, UserCreateIn,
 )
 from ..session import SessionError
 from ..settings_store import DEFAULTS, EDITABLE, apply_log_level
@@ -297,6 +297,16 @@ def test_check_records(
         data = system.check_records(class_code=class_code, check_status=check_status,
                                     check_status_type=check_status_type)
         return {"ok": True, "data": data}
+    except (SystemError, SessionError) as e:
+        return _err(e)
+
+
+@api.post("/test/location-checkin", summary="自测：智能查寝-定位签到")
+def test_location_checkin(body: LocationCheckinIn,
+                          system=Depends(get_admin_xsfw)) -> dict[str, Any]:
+    try:
+        return {"ok": True, "data": system.location_checkin(
+            body.latitude, body.longitude)}
     except (SystemError, SessionError) as e:
         return _err(e)
 
@@ -874,6 +884,17 @@ _DASHBOARD_TMPL = """<!doctype html>
         </div>
         <pre id="schedule-out">（接口自测结果）</pre>
       </div>
+      <div class="card">
+        <h2>接口自测（定位签到 · 使用我自己的会话）</h2>
+        <div class="row">
+          <span>经纬度：</span>
+          <input id="test-latitude" value="34.615408" placeholder="latitude 纬度" style="width:170px">
+          <input id="test-longitude" value="112.422575" placeholder="longitude 经度" style="width:170px">
+          <button type="button" onclick="testLocationCheckin()">提交</button>
+        </div>
+        <div class="note">服务端会校验考勤时间、名单、请假/归宿状态和签到围栏；不符合时不会提交。</div>
+        <pre id="location-checkin-out">（接口自测结果）</pre>
+      </div>
     </section>
 
     <!-- 用户管理（管理员） -->
@@ -1158,6 +1179,15 @@ async function testCheckRecords(){
   });
   const r=await api('/admin/api/test/check-records?'+q);
   $('check-records-out').textContent=JSON.stringify(r,null,2);
+}
+async function testLocationCheckin(){
+  const body={latitude:Number($('test-latitude').value),longitude:Number($('test-longitude').value)};
+  if(!Number.isFinite(body.latitude)||!Number.isFinite(body.longitude)){
+    $('location-checkin-out').textContent='请输入合法的经纬度';
+    return;
+  }
+  const r=await post('/admin/api/test/location-checkin',body);
+  $('location-checkin-out').textContent=JSON.stringify(r,null,2);
 }
 async function createUser(){
   const body={username:$('new-username').value.trim(),password:$('new-password').value,role:$('new-role').value,
