@@ -25,9 +25,15 @@ def location_checkin(body: LocationCheckinIn,
                      system: XsfwSystem = Depends(get_xsfw)) -> dict[str, Any]:
     """用真实经纬度提交当前学生定位签到。
 
-    调用方只传经纬度；服务端自动完成角色切换、状态查询、资格判断、
-    最近围栏距离校验和签到提交，并回读最新状态。
+    调用方只传 `latitude` / `longitude`；服务端自动完成角色切换、状态查询、
+    考勤资格判断、最近围栏距离校验和签到提交，并回读最新状态。
+
+    例：
+    ```json
+    {"latitude": 34.615408, "longitude": 112.422575}
+    ```
     """
+
     return system.location_checkin(body.latitude, body.longitude)
 
 

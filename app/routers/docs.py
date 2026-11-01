@@ -60,6 +60,25 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
                 "color": "#009688",
             }]}},
     },
+    ("POST", "/api/v1/dorm/location-checkin"): {
+        "request": {"latitude": 34.615408, "longitude": 112.422575},
+        "response": {"code": 0, "msg": "ok", "data": {
+            "submitted": True,
+            "location": {
+                "name": "洛阳理工学院(开元校区)璁苑2号学生公寓",
+                "latitude": 34.615408, "longitude": 112.422575,
+                "radius": 100.0, "distance": 2.5,
+            },
+            "checks": {
+                "inDate": True, "inTime": True, "inCheckinList": True,
+                "onLeave": False, "alreadyNormal": False, "alreadyLate": False,
+                "hasCheckedIn": False, "hasCheckedOutAfter": False,
+                "inRange": True,
+            },
+            "after": {"status": "正常归宿", "statusCode": "normal",
+                      "checkinTime": "11/01 23:20"},
+        }},
+    },
     ("POST", "/api/v1/dorm/check-records"): {
         "request": {"classCode": "B260714",
                     "checkStatus": "not_returned",
@@ -216,6 +235,7 @@ def _body_param_rows(op: dict, spec: dict) -> list[dict]:
 #: 前台 API 文档只展示的业务接口（顺序即侧栏菜单顺序）
 DOC_MENU = [
     ("智能查寝", "POST", "/api/v1/dorm/check-records"),
+    ("定位签到", "POST", "/api/v1/dorm/location-checkin"),
     ("课表查询", "POST", "/api/v1/lljw/schedule"),
 ]
 
@@ -615,7 +635,7 @@ DOCS_TMPL = """<!doctype html>
   <main id="main" class="docs-content">
     <article class="doc-content">
       <h1 class="doc-title">__APP_NAME__ · 接口文档</h1>
-      <p class="doc-lead">多用户统一认证接口网关：每个用户拥有自己的统一认证账号、独立 CAS 会话和独立 API Key。当前业务接口：智能查寝、课表查询。</p>
+      <p class="doc-lead">多用户统一认证接口网关：每个用户拥有自己的统一认证账号、独立 CAS 会话和独立 API Key。当前业务接口：智能查寝、定位签到、课表查询。</p>
       <p class="doc-note">调用 <code class="code-inline">/api/v1/**</code> 接口需在请求头带 <code class="code-inline">X-API-Key</code>；页面本身不包含任何密钥，在线调试时只从本机浏览器读取。</p>
       <div class="doc-cards">
         <div class="doc-card"><h3 class="doc-card-title">统一响应格式</h3><p>成功：<code class="code-inline">{"code":0,"msg":"ok","data":...}</code></p><p>错误：<code class="code-inline">code</code> 为非 0，并带 <code class="code-inline">msg</code> / <code class="code-inline">hint</code>。</p></div>
