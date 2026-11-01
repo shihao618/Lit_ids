@@ -31,23 +31,6 @@ HIDDEN_PATHS = {
 
 #: 人工维护的示例（key = (METHOD, path)）
 EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
-    ("GET", "/api/v1/auth/status"): {
-        "response": {
-            "logged_in": True, "username": "B2607xxxx",
-            "login_time": "2026-10-30 09:00:00",
-            "final_url": "http://ids.lit.edu.cn/authserver/personal/",
-            "fingerprint_saved": True, "cookie_names": ["JSESSIONID", "TGC"],
-            "tgc_masked": "eyJhbGciOiJIUzUxMi...（已脱敏）",
-            "pending_mfa": False, "mfa_used": False, "last_error": None,
-        },
-    },
-    ("POST", "/api/v1/auth/login"): {
-        "request": {"force": True, "mfa_code": None},
-        "response": {"code": 0, "msg": "ok", "data": {
-            "ok": True, "reused": False, "logged_in": True,
-            "username": "B2607xxxx", "login_time": "2026-10-30 09:00:00",
-            "final_url": "http://ids.lit.edu.cn/authserver/personal/"}},
-    },
     ("POST", "/api/v1/lljw/schedule"): {
         "request": {"query": "day", "date": "2026-10-29"},
         "response": {"code": 0, "msg": "ok", "data": {

@@ -57,8 +57,6 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0")
 
 #: 命令行默认值从环境变量读取（不要把真实账号密码写进代码）
-DEFAULT_USERNAME = os.getenv("LIT_USERNAME", "")
-DEFAULT_PASSWORD = os.getenv("LIT_PASSWORD", "")
 
 
 # =============================================================================
@@ -671,8 +669,8 @@ def load_saved_state(path):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="洛阳理工学院统一身份认证 账号登录脚本")
-    ap.add_argument("-u", "--username", default=DEFAULT_USERNAME, help="学号/工号")
-    ap.add_argument("-p", "--password", default=DEFAULT_PASSWORD, help="密码")
+    ap.add_argument("-u", "--username", help="学号/工号")
+    ap.add_argument("-p", "--password", help="密码")
     ap.add_argument("-s", "--service", default=None,
                     help="可选: 登录后跳转的业务系统地址 (CAS service 参数)")
     ap.add_argument("--mfa-code", default=None,
@@ -685,9 +683,10 @@ def main(argv=None):
                     help="即使已保存的会话仍然有效也重新登录")
     ap.add_argument("--max-captcha-tries", type=int, default=15, help="滑块验证码识别重试上限")
     ap.add_argument("-q", "--quiet", action="store_true", help="少打印")
+    ap.add_argument("--debug", action="store_true", help="出错时打印完整 traceback")
     args = ap.parse_args(argv)
     if not args.username or not args.password:
-        ap.error("缺少账号或密码：请用 -u/-p 参数，或设置环境变量 LIT_USERNAME / LIT_PASSWORD")
+        ap.error("缺少账号或密码：请用 -u/--username 和 -p/--password 参数")
 
     print("=" * 70)
     print(" 洛阳理工学院 统一身份认证 (ids.lit.edu.cn) 账号登录")
@@ -696,8 +695,8 @@ def main(argv=None):
 
     saved = load_saved_state(args.save_cookie)
     fingerprint = args.fingerprint or saved.get("fingerprint") or uuid.uuid4().hex
-    mfa_code = args.mfa_code or os.environ.get("LIT_MFA_CODE") or None
-    tries = int(os.environ.get("LIT_CAPTCHA_TRIES", args.max_captcha_tries))
+    mfa_code = args.mfa_code or None
+    tries = int(args.max_captcha_tries)
 
     # 如果上次保存的会话(TGC)还有效, 直接复用, 不再走登录流程
     if not args.force_login and saved.get("cookies"):
@@ -721,7 +720,7 @@ def main(argv=None):
     except Exception as e:  # noqa: BLE001  (给用户友好提示, 避免打一屏 traceback)
         print("-" * 70)
         print("登录过程出错:", e)
-        if os.environ.get("LIT_DEBUG"):
+        if args.debug:
             raise
         return 2
     if result.get("ok"):

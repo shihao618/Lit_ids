@@ -13,7 +13,6 @@
 * ✅ **业务接口**：`POST /api/v1/dorm/check-records`（智能查寝，**自有参数/易读返回**，内部调用官方 `cqztbg.do`）。
 
 > 运行参数（系统名称/日志级别/会话保活/启动自动登录）**只在后台「系统设置」修改**（`data/settings.json`），`.env` 仅用于部署与首次引导。
-> （`LIT_*`、`SESSION_REFRESH_INTERVAL` 等已移除）。旧 .env 请只保留下面的初始化配置。
 
 ---
 
@@ -236,7 +235,7 @@ curl -X POST "http://127.0.0.1:10381/api/v1/dorm/check-records" \
   "checkStatusType":"normal","checkStatusTypeLabel":"正常归寝"}]}}
 ```
 
-> 不再暴露官方原始字段（`WID/GZXS/CQZT/CQZTLX/querySetting/...`）；内部由网关拼 `querySetting` 调用官方 `cqztbg.do`，并按 200 条/页自动拉全。
+> 对外只返回易读字段；内部由网关拼 `querySetting` 调用官方 `cqztbg.do`，并按 200 条/页自动拉全。
 
 ### 4.2 教务系统-课表查询（自有接口 / 易读返回）
 
@@ -308,7 +307,7 @@ curl -X POST "http://127.0.0.1:10381/api/v1/lljw/schedule" \
   }]}}
 ```
 
-> 旧 `getCalendarWeekDatas` 路由已删除；网关内部自动调用官方课表接口并按 `ps/pe` 节次归类、按日期过滤。
+> 网关内部自动调用官方课表接口，按 `ps/pe` 节次归类、按日期过滤。
 
 ### 4.3 多用户与 API Key 规则
 
@@ -435,10 +434,9 @@ uvicorn app.main:app --host 0.0.0.0 --port 10381 --reload
 ## 11. 命令行工具（单账号调试用）
 
 ```bash
-# 单账号登录调试（生成 cookies.json）；账号密码用参数或环境变量提供，代码里没有默认凭据
+# 单账号登录调试（生成 cookies.json）；账号密码用参数提供，代码里没有默认凭据
 python lit_login.py -u B2607xxxx -p 'your-password'
 python lit_login.py -u B2607xxxx -p 'your-password' --force-login
-# 或：LIT_USERNAME=... LIT_PASSWORD=... python lit_login.py
 ```
 
 > 该脚本是单账号调试工具，与网关的多用户数据（`data/users.json`、`data/sessions/`）相互独立；
