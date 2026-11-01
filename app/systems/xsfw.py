@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import urllib.parse
 
 import lit_login as L
@@ -74,6 +75,13 @@ class XsfwSystem(BaseSystem):
 
     #: 官方查寝表格接口（仅内部使用，不再对外暴露）
     CQZTBG_PATH = "/xsfw/sys/zncqapp/modules/sjkb/cqztbg.do"
+
+    #: 学生查寝应用（与班级管理员用的 zncqapp 不是同一个 APPID）
+    STUDENT_INDEX = HOST + "/xsfw/sys/swmzncqapp/*default/index.do"
+    STUDENT_APPID = "5405362541914944"
+    STUDENT_APPNAME = "swmzncqapp"
+    KQ_INFO_PATH = "/xsfw/sys/swmzncqapp/kqController/getKqInfo.do"
+    ADD_KQ_INFO_PATH = "/xsfw/sys/swmzncqapp/kqController/addKqInfo.do"
 
     #: 可能拥有「数据看板」权限的角色（按优先级）
     PREFERRED_ROLES = ("班级管理员", "辅导员", "班主任", "教师")
@@ -347,3 +355,170 @@ class XsfwSystem(BaseSystem):
 
         return {"code": 0, "msg": "ok",
                 "data": {"total": total, "items": items}}
+
+    # ------------------------------------------------------------------ 学生查寝
+    def _ensure_student_app(self) -> None:
+        """SSO 到学生查寝应用，并设置「学生组」角色."""
+        self.ensure_session()
+        client = self.session.client
+        cas_url = L.BASE + "/authserver/login?service=" + urllib.parse.quote(
+            self.STUDENT_INDEX, safe="")
+        client.get(cas_url, headers={"User-Agent": L.UA,
+                                     "Accept": "text/html,application/xhtml+xml,*/*"})
+        client.get(self.STUDENT_INDEX, headers={"User-Agent": L.UA,
+                                                "Accept": "text/html,application/xhtml+xml,*/*"})
+        status, text = self._post_data(
+            "/xsfw/sys/swpubapp/NewMobileAPIController/getUserRoles.do",
+            {"APPID": self.STUDENT_APPID}, referer=self.STUDENT_INDEX)
+        data = self._parse_json(status, text, "getUserRoles")
+        roles = data.get("data") or []
+        role = next((r for r in roles if r.get("ROLENAME") == "学生组"), None)
+        if not role:
+            raise SystemError("当前账号没有「学生组」角色，无法查询/提交学生查寝",
+                              code="NO_STUDENT_ROLE", http_status=403,
+                              hint="可用角色: %s" % [r.get("ROLENAME") for r in roles])
+        status, text = self._post_data(
+            "/xsfw/sys/swpubapp/NewMobileAPIController/setAppRole.do",
+            {"APPID": self.STUDENT_APPID, "APPNAME": self.STUDENT_APPNAME,
+             "ROLEID": role["ROLEID"]}, referer=self.STUDENT_INDEX)
+        data = self._parse_json(status, text, "setAppRole")
+        if str(data.get("code")) not in ("0", "200"):
+            raise SystemError("设置学生查寝角色失败: %s" % data.get("msg"),
+                              code="STUDENT_ROLE_FAILED", http_status=502)
+
+    def student_kq_info(self) -> dict:
+        """拉取学生查寝当前信息（原始结构，供上层整理）."""
+        with self.session.lock:
+            self._ensure_student_app()
+            status, text = self._post_data(
+                self.KQ_INFO_PATH, {}, referer=self.STUDENT_INDEX)
+            data = self._parse_json(status, text, "getKqInfo")
+            if str(data.get("code")) not in ("0", "200"):
+                raise SystemError("查询学生查寝状态失败: %s" % data.get("msg"),
+                                  code=data.get("code"), http_status=502)
+            return data.get("data") or {}
+
+    @staticmethod
+    def _distance_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+        """Haversine 距离（米）."""
+        r = 6371000.0
+        p1, p2 = math.radians(lat1), math.radians(lat2)
+        dp = p2 - p1
+        dl = math.radians(lng2 - lng1)
+        a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+        return 2 * r * math.asin(math.sqrt(a))
+
+    @classmethod
+    def _nearest_location(cls, dd_list: list[dict], latitude: float,
+                          longitude: float) -> dict | None:
+        nearest = None
+        for item in dd_list:
+            try:
+                lat = float(item.get("WDZB"))
+                lng = float(item.get("JDZB"))
+                radius = float(item.get("YXFW") or 0)
+            except (TypeError, ValueError):
+                continue
+            distance = cls._distance_m(latitude, longitude, lat, lng)
+            if nearest is None or distance < nearest["distance"]:
+                nearest = {
+                    "name": item.get("QDDD") or "",
+                    "latitude": lat,
+                    "longitude": lng,
+                    "radius": radius,
+                    "distance": round(distance, 1),
+                }
+        return nearest
+
+    @staticmethod
+    def _student_checks(data: dict, location: dict | None = None) -> dict:
+        cfg = data.get("CONFIG_INFO") or {}
+        qd = data.get("QD_INFO") or {}
+        checks = {
+            "inDate": bool(cfg.get("IN_DATE")),
+            "inTime": bool(cfg.get("IN_TIME")),
+            "inCheckinList": bool(data.get("IS_CQMD")),
+            "onLeave": bool(data.get("IS_QJ")),
+            "alreadyNormal": bool(qd.get("IS_ZCGS")),
+            "alreadyLate": bool(qd.get("IS_WG")),
+            "hasCheckedIn": bool(qd.get("hasQd")),
+            "hasCheckedOutAfter": bool(qd.get("hasQdhcq")),
+            "inRange": None,
+        }
+        if location is not None:
+            checks["inRange"] = (
+                location["radius"] > 0
+                and location["distance"] <= location["radius"])
+        reason = ""
+        if not checks["inCheckinList"]:
+            reason = "不在查寝名单"
+        elif not checks["inDate"]:
+            reason = "今天不是考勤日"
+        elif not checks["inTime"]:
+            reason = "不在查寝时间段"
+        elif checks["onLeave"]:
+            reason = "已离校请假"
+        elif checks["alreadyNormal"]:
+            reason = "已正常归宿"
+        elif checks["alreadyLate"]:
+            reason = "已晚归"
+        elif checks["hasCheckedIn"] and not checks["hasCheckedOutAfter"]:
+            reason = "已经签到"
+        elif checks["inRange"] is False:
+            reason = "不在签到范围内"
+        can_sign = not reason
+        return {"canSign": can_sign, "reason": reason, "checks": checks}
+
+    @staticmethod
+    def _student_status_text(data: dict) -> tuple[str, str]:
+        cfg = data.get("CONFIG_INFO") or {}
+        qd = data.get("QD_INFO") or {}
+        if qd.get("IS_ZCGS"):
+            return "正常归宿", "normal"
+        if qd.get("IS_WG"):
+            return "晚归", "late"
+        if qd.get("hasQd"):
+            return "已签到", "checked_in"
+        if data.get("IS_QJ"):
+            return "离校请假", "leave"
+        if not cfg.get("IN_DATE"):
+            return "无需考勤", "not_required"
+        return "未签到", "not_checked_in"
+
+    def location_checkin(self, latitude: float, longitude: float) -> dict:
+        """学生定位签到：调用方提供经纬度，服务端复核资格后提交."""
+        data = self.student_kq_info()
+        dd_list = data.get("DD_LIST") or []
+        location = self._nearest_location(dd_list, latitude, longitude)
+        if not location:
+            return {"code": 1, "msg": "没有可用的签到地点", "data": None}
+        checks = self._student_checks(data, location)
+        if not checks["canSign"]:
+            return {"code": 0, "msg": "ok", "data": {
+                "submitted": False,
+                "reason": checks["reason"],
+                "checks": checks["checks"],
+                "location": location,
+            }}
+        chosen_address = location["name"]
+        status, text = self._post_data(
+            self.ADD_KQ_INFO_PATH,
+            {"KQWZXX": chosen_address, "JDZB": str(longitude), "WDZB": str(latitude)},
+            referer=self.STUDENT_INDEX)
+        upstream = self._parse_json(status, text, "addKqInfo")
+        if str(upstream.get("code")) not in ("0", "200"):
+            return {"code": 1, "msg": "打卡失败: %s" % upstream.get("msg"),
+                    "data": {"submitted": False, "upstream": upstream,
+                             "location": location, "checks": checks["checks"]}}
+        latest = self.student_kq_info()
+        latest_status, latest_code = self._student_status_text(latest)
+        latest_qd = latest.get("QD_INFO") or {}
+        return {"code": 0, "msg": "ok", "data": {
+            "submitted": True,
+            "location": location,
+            "checks": checks["checks"],
+            "address": chosen_address,
+            "upstream": upstream,
+            "after": {"status": latest_status, "statusCode": latest_code,
+                      "checkinTime": latest_qd.get("GSSJ") or ""},
+        }}

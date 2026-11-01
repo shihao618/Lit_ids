@@ -309,7 +309,19 @@ curl -X POST "http://127.0.0.1:10381/api/v1/lljw/schedule" \
 
 > 网关内部自动调用官方课表接口，按 `ps/pe` 节次归类、按日期过滤。
 
-### 4.3 多用户与 API Key 规则
+### 4.3 学生查寝-定位签到
+
+调用方只传经纬度，服务端自动完成学生查寝角色切换、状态查询、资格判断、最近围栏距离校验和签到提交。
+
+```bash
+curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json" \
+  -d '{"latitude":34.6154,"longitude":112.4226}' \
+  http://127.0.0.1:10381/api/v1/dorm/location-checkin
+```
+
+返回 `submitted`、命中的签到点/距离、资格检查结果和签到后状态；不符合考勤时间、名单、请假、归宿状态或围栏条件时不会提交。
+
+### 4.4 多用户与 API Key 规则
 
 * 后台「👤 我的账号」可查看/复制/重新生成自己的 Key；**重新生成后旧 Key 立即失效**；
 * 不同 Key 对应不同用户的统一认证会话，互不影响；

@@ -12,11 +12,23 @@ from typing import Any
 from fastapi import APIRouter, Depends
 
 from ..deps import get_xsfw, require_api_key
-from ..schemas import CheckRecordsIn
+from ..schemas import CheckRecordsIn, LocationCheckinIn
 from ..systems import XsfwSystem
 
 router = APIRouter(prefix="/api/v1/dorm", tags=["智能查寝"],
                    dependencies=[Depends(require_api_key)])
+
+
+@router.post("/location-checkin",
+             summary="智能查寝-定位签到")
+def location_checkin(body: LocationCheckinIn,
+                     system: XsfwSystem = Depends(get_xsfw)) -> dict[str, Any]:
+    """用真实经纬度提交当前学生定位签到。
+
+    调用方只传经纬度；服务端自动完成角色切换、状态查询、资格判断、
+    最近围栏距离校验和签到提交，并回读最新状态。
+    """
+    return system.location_checkin(body.latitude, body.longitude)
 
 
 @router.post("/check-records",

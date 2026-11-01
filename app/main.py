@@ -187,6 +187,7 @@ def create_app() -> FastAPI:
                 "GET  /api/v1/auth/status         当前 API Key 用户的会话状态",
                 "POST /api/v1/auth/login          登录当前 API Key 用户的统一认证",
                 "POST /api/v1/dorm/check-records",
+                "POST /api/v1/dorm/location-checkin",
                 "POST /api/v1/lljw/schedule",
             ],
         }

@@ -120,6 +120,13 @@ class CheckRecordsIn(BaseModel):
                         "normal 正常归寝 / late 晚归（也接受中文）")
 
 
+class LocationCheckinIn(BaseModel):
+    """学生定位签到（当前账号必须拥有「学生组」角色）."""
+
+    latitude: float = Field(..., ge=-90, le=90, description="纬度")
+    longitude: float = Field(..., ge=-180, le=180, description="经度")
+
+
 class ScheduleIn(BaseModel):
     """教务系统-课表查询（自有参数）."""
 
