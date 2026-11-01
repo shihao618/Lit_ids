@@ -14,3 +14,6 @@ __pycache__/
 .idea/
 .vscode/
 .DS_Store
+
+# 本地浏览器自动化临时目录
+.edge_*
