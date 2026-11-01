@@ -260,13 +260,21 @@ class SessionManager:
                 return {"status": "error", "error": self._last_error}
 
             encrypted = L.aes_cbc_encrypt_b64(self.credentials.password, salt)
+            fingerprint = self.credentials.fingerprint
+            if not fingerprint:
+                fingerprint = uuid.uuid4().hex
+                try:
+                    self.credentials.set_fingerprint(fingerprint)
+                    log.info("[%s] 已自动生成并保存设备指纹", self.label)
+                except Exception as e:  # noqa: BLE001
+                    log.warning("[%s] 自动生成的设备指纹保存失败: %s", self.label, e)
             fields = {
                 "username": self.credentials.username,
                 "password": encrypted,
                 "execution": execution,
                 "_eventId": "submit",
                 "captcha": token,
-                "browserFingerprint": self.credentials.fingerprint or uuid.uuid4().hex,
+                "browserFingerprint": fingerprint,
             }
             try:
                 status, final_url, body = client.post_form(L.LOGIN_URL, fields)

@@ -64,7 +64,7 @@ class CasSettingsIn(BaseModel):
 
     cas_username: str | None = Field(None, description="统一认证账号（学号/工号）")
     cas_password: str | None = Field(None, description="统一认证密码；留空 None 表示不修改")
-    cas_fingerprint: str | None = Field(None, description="设备指纹；空字符串表示清空")
+    cas_fingerprint: str | None = Field(None, description="设备指纹；留空自动生成")
 
 
 class SelfPasswordIn(BaseModel):
@@ -80,7 +80,7 @@ class UserCreateIn(BaseModel):
     role: str = Field("user", description="角色：admin / user")
     cas_username: str = Field("", description="统一认证账号（可留空，用户自己再配）")
     cas_password: str = Field("", description="统一认证密码（可留空）")
-    cas_fingerprint: str = Field("", description="设备指纹（可留空）")
+    cas_fingerprint: str = Field("", description="设备指纹（留空自动生成）")
 
 
 class AdminPasswordIn(BaseModel):

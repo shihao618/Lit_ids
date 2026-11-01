@@ -33,6 +33,7 @@ import logging
 import os
 import time
 import urllib.parse
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -108,6 +109,14 @@ def _err(e: Exception) -> dict[str, Any]:
             "code": getattr(e, "code", None), "hint": getattr(e, "hint", None)}
 
 
+def _fingerprint(value: str | None) -> str | None:
+    """None = 不修改；空字符串 = 自动生成；否则使用传入值."""
+    if value is None:
+        return None
+    value = value.strip()
+    return value or uuid.uuid4().hex
+
+
 def _self_public(store: UserStore, user: dict) -> dict:
     data = UserStore.public_user(user, mask_key=False)
     data["api_key"] = user.get("api_key") or ""
@@ -156,9 +165,10 @@ def api_settings(request: Request, body: CasSettingsIn,
     cas_password = body.cas_password if body.cas_password else None
     updated = store.update_cas(user["id"], cas_username=cas_username,
                                cas_password=cas_password,
-                               cas_fingerprint=body.cas_fingerprint)
+                               cas_fingerprint=_fingerprint(body.cas_fingerprint))
     if not updated.get("cas_password"):
         return {"ok": True, "message": "统一认证账号已保存（尚未设置密码，请填写密码后再保存一次）",
+                "fingerprint": updated.get("cas_fingerprint") or "",
                 "session": get_registry(request).session(user["id"]).status()}
     # 账号/密码变化后清掉旧会话，避免继续用旧账号的登录态
     clear = bool(body.cas_username is not None or cas_password)
@@ -166,7 +176,8 @@ def api_settings(request: Request, body: CasSettingsIn,
     session = registry.session(user["id"])
     msg = "统一认证账号已保存" + ("（旧会话已清除，请到「🧪 登录调试」重新登录）" if clear else "")
     log.info("用户 %s 更新统一认证账号配置", user.get("username"))
-    return {"ok": True, "message": msg, "session": session.status()}
+    return {"ok": True, "message": msg, "fingerprint": updated.get("cas_fingerprint") or "",
+            "session": session.status()}
 
 
 @api.post("/account/password", summary="修改自己的后台密码")
@@ -303,7 +314,7 @@ def create_user(request: Request, body: UserCreateIn,
         user = store.create(
             username=body.username, password=body.password, role=body.role,
             cas_username=body.cas_username, cas_password=body.cas_password,
-            cas_fingerprint=body.cas_fingerprint)
+            cas_fingerprint=_fingerprint(body.cas_fingerprint))
     except ValueError as e:
         return {"ok": False, "error": str(e)}
     log.info("管理员 %s 创建用户 %s", admin.get("username"), user.get("username"))
@@ -358,7 +369,7 @@ def set_user_cas(request: Request, user_id: str, body: AdminCasIn,
         return {"ok": False, "error": "用户不存在"}
     store.update_cas(user_id, cas_username=body.cas_username,
                      cas_password=body.cas_password if body.cas_password else None,
-                     cas_fingerprint=body.cas_fingerprint)
+                     cas_fingerprint=_fingerprint(body.cas_fingerprint))
     get_registry(request).drop(user_id, clear_cookies=True)
     return {"ok": True, "message": "已更新该用户的统一认证账号"}
 
@@ -1035,6 +1046,7 @@ async function saveCas(){
   const p=$('cas-password').value;if(p)body.cas_password=p;
   const r=await post('/admin/api/settings',body);
   $('cas-password').value='';casDirty=false;
+  if(r.fingerprint) $('cas-fingerprint').value=r.fingerprint;
   show($('cas-msg'),r.message||(r.ok?'已保存':'失败'+(r.error?('：'+r.error):'')),r.ok?'ok':'err');
   refresh();
 }

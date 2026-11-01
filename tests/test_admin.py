@@ -422,3 +422,20 @@ def test_admin_session_check_endpoint_and_state_fields():
         assert r["ok"] is True
         assert r["valid"] is False          # 测试环境没有 CAS 会话
         assert "掉线" in r["message"] or "失效" in r["message"]
+
+def test_auto_generated_fingerprint_is_returned_and_saved():
+    """设备指纹留空保存：后端自动生成，接口返回并写入用户配置（前端输入框回显）."""
+    with _client() as c:
+        _login(c)
+        r = c.post("/admin/api/settings", json={
+            "cas_username": "B2607xxxx",
+            "cas_password": "cas-pass",
+            "cas_fingerprint": "",
+        }).json()
+        assert r["ok"] is True
+        fp = r.get("fingerprint") or ""
+        assert len(fp) == 32
+        assert all(ch in "0123456789abcdef" for ch in fp)
+        st = _state(c)
+        assert st["user"]["cas_fingerprint"] == fp
+        assert st["user"]["cas_fingerprint_set"] is True

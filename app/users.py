@@ -88,6 +88,10 @@ class UserCredentials:
     def fingerprint(self) -> str | None:
         return self._user().get("cas_fingerprint") or None
 
+    def set_fingerprint(self, fingerprint: str) -> None:
+        """保存自动生成的设备指纹，供后台输入框回显和后续登录复用."""
+        self._store.update_cas(self.user_id, cas_fingerprint=fingerprint)
+
     def configured(self) -> bool:
         return bool(self.username and self.password)
 
