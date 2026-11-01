@@ -1,0 +1,16 @@
+2026-11-01 15:03:28.977: [INFO] CurrentProfilePath: F:\Lit_ids\.edge_adminclaw_1793545408442\Default
+2026-11-01 15:03:28.977: [INFO] Profiles total count: 1
+2026-11-01 15:03:28.977: [INFO] Profile: name=用户配置 1 path=F:\Lit_ids\.edge_adminclaw_1793545408442\Default lastActive=null
+2026-11-01 15:03:28.977: [INFO] LastUsedProfileDir: F:\Lit_ids\.edge_adminclaw_1793545408442\Default
+2026-11-01 15:03:28.977: [INFO] VisibilityChanged: 0
+2026-11-01 15:03:29.037: [INFO] OnDoneLoading sync enabled: 0
+2026-11-01 15:03:29.037: [INFO] BookmarkModelLoaded, ids_reassigned: 0
+2026-11-01 15:03:29.037: [INFO] BookmarksLoadDropped droppedNodes=0
+2026-11-01 15:03:29.037: [INFO] BookmarksSnapshot Startup total=0 bar=0 other=0 mobile=0 showBar=0 showBarNTP=1
+2026-11-01 15:03:29.109: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2026-11-01 15:03:29.467: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2026-11-01 15:03:29.468: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2026-11-01 15:03:29.472: [INFO] Primary account changed.
+2026-11-01 15:03:29.472: [INFO] OnPrimaryAccountChanged PrimaryAccountChangeEvent::Type::kSet
+2026-11-01 15:03:29.479: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2026-11-01 15:03:29.480: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0

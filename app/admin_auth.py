@@ -24,6 +24,7 @@ from .users import UserStore
 log = logging.getLogger(__name__)
 
 COOKIE_NAME = "lit_admin"
+IMPERSONATOR_COOKIE = "lit_admin_impersonator"
 DEFAULT_TTL = 8 * 3600
 
 

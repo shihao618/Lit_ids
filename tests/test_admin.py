@@ -439,3 +439,41 @@ def test_auto_generated_fingerprint_is_returned_and_saved():
         st = _state(c)
         assert st["user"]["cas_fingerprint"] == fp
         assert st["user"]["cas_fingerprint_set"] is True
+
+def test_admin_can_impersonate_user_and_restore():
+    """管理员可切换到其他用户身份，并在右上角返回管理员."""
+    with _client() as c:
+        _login(c)
+        user = _create_user(c, "impersonate-me")
+        r = c.post("/admin/api/users/%s/impersonate" % user["id"])
+        assert r.status_code == 200
+        assert r.json()["ok"] is True
+        st = _state(c)
+        assert st["user"]["username"] == "impersonate-me"
+        assert st["is_admin"] is False
+        assert st["impersonator"]["username"] == "admin"
+        # 普通用户身份不能继续切换其他用户
+        assert c.post("/admin/api/users/%s/impersonate" % user["id"]).status_code == 403
+        # 返回管理员
+        assert c.post("/admin/api/restore").json()["ok"] is True
+        st = _state(c)
+        assert st["user"]["username"] == "admin"
+        assert st["is_admin"] is True
+        assert st["impersonator"] is None
+        # 不允许切换到自己
+        r = c.post("/admin/api/users/%s/impersonate" % st["user"]["id"]).json()
+        assert r["ok"] is False and "自己" in r["error"]
+
+
+def test_non_admin_cannot_impersonate():
+    with _client() as c:
+        _login(c)
+        admin_id = _state(c)["user"]["id"]
+        _create_user(c, "normal-user")
+        with TestClient(app) as user_c:
+            r = user_c.post("/admin/login", data={
+                "username": "normal-user", "password": "user-pass-1"},
+                follow_redirects=False)
+            assert r.status_code == 303
+            r = user_c.post("/admin/api/users/%s/impersonate" % admin_id)
+            assert r.status_code == 403

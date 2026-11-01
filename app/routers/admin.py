@@ -37,9 +37,10 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
-from ..admin_auth import COOKIE_NAME, DEFAULT_TTL, get_cookie_user, make_token, require_admin_user, require_login
+from ..admin_auth import (COOKIE_NAME, DEFAULT_TTL, IMPERSONATOR_COOKIE,
+                          get_cookie_user, make_token, parse_token, require_admin_user, require_login)
 from ..deps import get_admin_lljw, get_admin_xsfw, get_registry
 from ..logbuf import log_buffer
 from ..restart import schedule_restart
@@ -89,6 +90,7 @@ async def admin_login(request: Request):
     resp = RedirectResponse("/admin", status_code=303)
     resp.set_cookie(COOKIE_NAME, make_token(request.app.state.settings, user["id"]),
                     max_age=DEFAULT_TTL, httponly=True, samesite="lax", path="/")
+    resp.delete_cookie(IMPERSONATOR_COOKIE, path="/")
     log.info("后台登录成功: %s", user.get("username"))
     return resp
 
@@ -97,6 +99,7 @@ async def admin_login(request: Request):
 def admin_logout() -> RedirectResponse:
     resp = RedirectResponse("/admin", status_code=303)
     resp.delete_cookie(COOKIE_NAME, path="/")
+    resp.delete_cookie(IMPERSONATOR_COOKIE, path="/")
     return resp
 
 
@@ -115,6 +118,20 @@ def _fingerprint(value: str | None) -> str | None:
         return None
     value = value.strip()
     return value or uuid.uuid4().hex
+
+
+def _impersonator_info(request: Request, store: UserStore, current: dict) -> dict | None:
+    """如果当前是管理员切换过来的，返回原管理员信息，供界面显示「返回管理员」."""
+    raw = request.cookies.get(IMPERSONATOR_COOKIE)
+    if not raw:
+        return None
+    uid = parse_token(request.app.state.settings, raw)
+    if not uid or uid == current.get("id"):
+        return None
+    original = store.get(uid)
+    if not original or original.get("role") != "admin":
+        return None
+    return {"id": original.get("id"), "username": original.get("username")}
 
 
 def _self_public(store: UserStore, user: dict) -> dict:
@@ -140,6 +157,7 @@ def api_state(request: Request, user: dict = Depends(require_login)) -> dict[str
         "time": time.strftime("%Y-%m-%d %H:%M:%S"),
         "user": _self_public(store, user),
         "is_admin": is_admin,
+        "impersonator": _impersonator_info(request, store, user),
         "session": session.status(),
         "users": users,
         "env": {
@@ -320,6 +338,50 @@ def create_user(request: Request, body: UserCreateIn,
     log.info("管理员 %s 创建用户 %s", admin.get("username"), user.get("username"))
     return {"ok": True, "user": UserStore.public_user(user, mask_key=False),
             "message": "用户已创建，请把 API Key 交给该用户"}
+
+
+@api.post("/users/{user_id}/impersonate", summary="以该用户身份登录（管理员）")
+def impersonate_user(request: Request, user_id: str,
+                     admin: dict = Depends(require_admin_user)):
+    store: UserStore = request.app.state.store
+    if request.cookies.get(IMPERSONATOR_COOKIE) and _impersonator_info(
+            request, store, admin):
+        return {"ok": False, "error": "当前正在以其他用户身份登录，请先返回管理员"}
+    if user_id == admin.get("id"):
+        return {"ok": False, "error": "不能切换到自己；返回管理员即可"}
+    target = store.get(user_id)
+    if not target:
+        return {"ok": False, "error": "用户不存在"}
+    settings = request.app.state.settings
+    target_token = make_token(settings, target["id"], ttl=DEFAULT_TTL)
+    admin_token = make_token(settings, admin["id"], ttl=DEFAULT_TTL)
+    resp = JSONResponse({
+        "ok": True,
+        "message": "已切换为 %s，可在右上角返回管理员" % target.get("username"),
+        "user": UserStore.public_user(target, mask_key=False),
+    })
+    resp.set_cookie(COOKIE_NAME, target_token, max_age=DEFAULT_TTL,
+                    httponly=True, samesite="lax", path="/")
+    resp.set_cookie(IMPERSONATOR_COOKIE, admin_token, max_age=DEFAULT_TTL,
+                    httponly=True, samesite="lax", path="/")
+    log.warning("管理员 %s 切换登录为 %s", admin.get("username"), target.get("username"))
+    return resp
+
+
+@api.post("/restore", summary="返回管理员账号")
+def restore_admin(request: Request, current: dict = Depends(require_login)):
+    store: UserStore = request.app.state.store
+    token = request.cookies.get(IMPERSONATOR_COOKIE)
+    uid = parse_token(request.app.state.settings, token) if token else None
+    original = store.get(uid) if uid else None
+    if not original or original.get("role") != "admin":
+        return {"ok": False, "error": "没有可返回的管理员账号，请重新登录"}
+    resp = JSONResponse({"ok": True, "message": "已返回管理员"})
+    resp.set_cookie(COOKIE_NAME, token, max_age=DEFAULT_TTL,
+                    httponly=True, samesite="lax", path="/")
+    resp.delete_cookie(IMPERSONATOR_COOKIE, path="/")
+    log.warning("用户 %s 返回管理员 %s", current.get("username"), original.get("username"))
+    return resp
 
 
 @api.delete("/users/{user_id}", summary="删除用户（管理员）")
@@ -590,6 +652,7 @@ _DASHBOARD_TMPL = """<!doctype html>
 .stat-head{display:flex;align-items:center;gap:8px;color:var(--text2);font-size:12px}
 .stat-icon{font-size:15px}
 .stat-value{font-size:20px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn[hidden]{display:none!important}
 #users-table td{vertical-align:middle}
 #users-table td button{margin:0 6px 0 0}
 @media(max-width:900px){
@@ -661,6 +724,7 @@ _DASHBOARD_TMPL = """<!doctype html>
       <div class="topbar-actions">
         <span id="who" class="topbar-user"></span>
         <button type="button" class="btn btn-secondary btn-sm" onclick="refresh()">🔄 刷新</button>
+        <a class="btn btn-ghost btn-sm" id="btn-back-admin" href="#" hidden onclick="restoreAdmin(event)">返回管理员</a>
         <a class="btn btn-ghost btn-sm" href="/admin/logout">退出登录</a>
       </div>
     </header>
@@ -885,7 +949,7 @@ function show(el,text,type){el.textContent=text;el.className='msg show'+(type?('
 async function api(path,opt){const r=await fetch(path,Object.assign({credentials:'same-origin'},opt||{}));if(r.status===401){location.href='/admin';throw new Error('未登录');}let d=null;try{d=await r.json();}catch(e){}return d;}
 async function post(path,body){return api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});}
 function fmt(v){return (v===undefined||v===null||v==='')?'-':esc(v);}
-let IS_ADMIN=false, CURRENT='overview';
+let IS_ADMIN=false, CURRENT='overview', MY_ID='';
 let casDirty=false;   // 统一认证表单是否被用户修改（避免 5s 自动刷新覆盖输入）
 
 const PANEL_META={
@@ -944,6 +1008,10 @@ async function refresh(){
   if(!st) return;
   IS_ADMIN=!!st.is_admin;
   $('who').textContent=st.user.username||'';
+  MY_ID=st.user.id||'';
+  const imp=st.impersonator||null;
+  const back=$('btn-back-admin');
+  if(back){back.hidden=!imp;if(imp)back.textContent='返回管理员（'+imp.username+'）';}
   const _u=st.user||{}, _s=st.session||{};
   $('stat-user').textContent=fmt(_u.username||'-');
   $('stat-session').textContent=(_s.logged_in?'已登录':'未登录');
@@ -1003,7 +1071,9 @@ function renderUsers(users){
   let h='';
   for(const u of users){
     h+='<tr><td>'+esc(u.username)+(u.role==='admin'?' <span class="ok-tag">管理员</span>':'')+'</td><td>'+esc(u.role)+'</td><td>'+fmt(u.cas_username)+'</td><td><code>'+esc(u.api_key||'')+'</code></td><td>'+fmt(u.created_at)+
-       '</td><td><button type="button" class="gray" data-id="'+esc(u.id)+'" onclick="resetUserPwd(this.dataset.id)">重置密码</button>'+
+       '</td><td>'
+       +(u.id!==MY_ID?'<button type="button" class="gray" title="以该用户身份登录后台" data-id="'+esc(u.id)+'" onclick="impersonateUser(this.dataset.id)">登录该用户</button>':'')
+       +'<button type="button" class="gray" data-id="'+esc(u.id)+'" onclick="resetUserPwd(this.dataset.id)">重置密码</button>'+
        '<button type="button" class="gray" data-id="'+esc(u.id)+'" onclick="resetUserKey(this.dataset.id)">重置Key</button>'+
        '<button type="button" class="red" data-id="'+esc(u.id)+'" onclick="deleteUser(this.dataset.id)">删除</button></td></tr>';
   }
@@ -1096,6 +1166,18 @@ async function createUser(){
   if(r.ok){$('new-username').value='';$('new-password').value='';$('new-cas-username').value='';$('new-cas-password').value='';refresh();}
 }
 async function resetUserPwd(id){const pwd=prompt('输入该用户的新后台密码（≥6位）：');if(!pwd)return;const r=await post('/admin/api/users/'+id+'/password',{password:pwd});show($('users-msg'),r.message||(r.ok?'已重置':'失败'+(r.error?('：'+r.error):'')),r.ok?'ok':'err');}
+async function impersonateUser(id){
+  if(!confirm('以该用户身份登录后台？右上角可返回管理员。')) return;
+  const r=await post('/admin/api/users/'+id+'/impersonate',{});
+  if(r&&r.ok){location.href='/admin';return;}
+  show($('users-msg'),(r&&r.error)||'切换登录失败','err');
+}
+async function restoreAdmin(ev){
+  if(ev) ev.preventDefault();
+  const r=await post('/admin/api/restore',{});
+  if(r&&r.ok){location.href='/admin';return;}
+  alert((r&&r.error)||'返回管理员失败');
+}
 async function resetUserKey(id){if(!confirm('重新生成该用户的 API Key？旧 Key 会立即失效。'))return;const r=await post('/admin/api/users/'+id+'/apikey',{});show($('users-msg'),r.ok?('新 API Key：'+r.api_key):('失败：'+(r.error||'')),r.ok?'ok':'err');refresh();}
 async function deleteUser(id){if(!confirm('确定删除该用户？其会话/API Key 将立即失效。'))return;const r=await api('/admin/api/users/'+id,{method:'DELETE'});show($('users-msg'),r.message||(r.ok?'已删除':'失败'+(r.error?('：'+r.error):'')),r.ok?'ok':'err');refresh();}
 async function loadSystemSettings(){
