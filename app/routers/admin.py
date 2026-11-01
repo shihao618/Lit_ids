@@ -1072,10 +1072,11 @@ function renderUsers(users){
   for(const u of users){
     h+='<tr><td>'+esc(u.username)+(u.role==='admin'?' <span class="ok-tag">管理员</span>':'')+'</td><td>'+esc(u.role)+'</td><td>'+fmt(u.cas_username)+'</td><td><code>'+esc(u.api_key||'')+'</code></td><td>'+fmt(u.created_at)+
        '</td><td>'
-       +(u.id!==MY_ID?'<button type="button" class="gray" title="以该用户身份登录后台" data-id="'+esc(u.id)+'" onclick="impersonateUser(this.dataset.id)">登录该用户</button>':'')
        +'<button type="button" class="gray" data-id="'+esc(u.id)+'" onclick="resetUserPwd(this.dataset.id)">重置密码</button>'+
        '<button type="button" class="gray" data-id="'+esc(u.id)+'" onclick="resetUserKey(this.dataset.id)">重置Key</button>'+
-       '<button type="button" class="red" data-id="'+esc(u.id)+'" onclick="deleteUser(this.dataset.id)">删除</button></td></tr>';
+       '<button type="button" class="red" data-id="'+esc(u.id)+'" onclick="deleteUser(this.dataset.id)">删除</button>'
+       +(u.id!==MY_ID?'<button type="button" class="gray" title="以该用户身份登录后台" data-id="'+esc(u.id)+'" onclick="impersonateUser(this.dataset.id)">登录该用户</button>':'')
+       +'</td></tr>';
   }
   $('users-tbody').innerHTML=h||'<tr><td colspan="6">暂无用户</td></tr>';
 }
