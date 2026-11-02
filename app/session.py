@@ -22,6 +22,9 @@ import lit_login as L
 
 log = logging.getLogger(__name__)
 
+#: 企业微信验证码有效期（秒）；过期后不再自动重发，直到用户手动重新登录
+MFA_TTL = 300
+
 
 class SessionError(RuntimeError):
     """会话不可用（未登录 / 登录失败 / 需要人工二次验证等）."""
@@ -55,6 +58,8 @@ class SessionManager:
         self.generation = 0
         #: 待完成的二次验证状态（后台界面输入验证码用）
         self._pending: dict | None = None
+        #: 验证码过期后停止自动重发，等待用户手动重新登录
+        self._mfa_paused = False
         #: 最近一次登录调试信息（后台界面展示）
         self.debug: dict = {"stage": None, "captcha": [], "result": None, "error": None, "at": None}
         self._load()
@@ -93,6 +98,7 @@ class SessionManager:
         self._cookies = cookies
         self._meta = {k: v for k, v in payload.items() if k != "cookies"}
         self._pending = None
+        self._mfa_paused = False
         self._last_error = None
         self._valid = True
         self._valid_checked_at = time.time()
@@ -130,8 +136,19 @@ class SessionManager:
     def cookies(self) -> dict[str, str]:
         return dict(self._cookies)
 
+    def _mfa_expired(self) -> bool:
+        return bool(self._pending) and (
+            time.time() - float(self._pending.get("created") or 0) >= MFA_TTL)
+
+    def _pause_expired_mfa(self) -> None:
+        if self._pending is not None:
+            self._pending = None
+            self._mfa_paused = True
+            self._last_error = (
+                "企业微信验证码已失效，已停止自动重发；请到后台「登录调试」手动重新登录")
+
     def pending_mfa(self) -> bool:
-        return self._pending is not None
+        return self._pending is not None and not self._mfa_expired()
 
     def status(self) -> dict:
         cookies = self._cookies
@@ -154,7 +171,8 @@ class SessionManager:
             "mfa_used": self._meta.get("mfa_used"),
             "cookie_names": sorted(cookies),
             "tgc_masked": (tgc[:18] + "..." + tgc[-8:]) if len(tgc) > 30 else tgc,
-            "pending_mfa": self._pending is not None,
+            "pending_mfa": self._pending is not None and not self._mfa_expired(),
+            "mfa_expired": self._mfa_paused,
             "pending_since": (time.strftime("%Y-%m-%d %H:%M:%S",
                                             time.localtime(self._pending["created"]))
                               if self._pending else None),
@@ -229,6 +247,8 @@ class SessionManager:
           * {"status": "error", "error"} —— 失败
         """
         with self._lock:
+            self._mfa_paused = False
+            self._pending = None
             if not force and self._client is not None and self._tgc_valid():
                 self._debug("reuse", "ok")
                 return {"status": "ok", "reused": True, "session": self.status()}
@@ -315,6 +335,11 @@ class SessionManager:
     def complete_mfa(self, code: str) -> dict:
         """提交企业微信验证码（后台界面输入验证码用）."""
         with self._lock:
+            if self._mfa_expired():
+                self._pause_expired_mfa()
+                raise SessionError(self._last_error or "企业微信验证码已失效，请重新登录")
+            if self._mfa_paused:
+                raise SessionError(self._last_error or "企业微信验证码已失效，请重新登录")
             if not self._pending:
                 raise SessionError("当前没有等待验证码的登录（请先点击「开始登录」）")
             if not code or len(code.strip()) < 4:
@@ -347,6 +372,11 @@ class SessionManager:
     def resend_mfa(self) -> dict:
         """重新发送企业微信验证码."""
         with self._lock:
+            if self._mfa_expired():
+                self._pause_expired_mfa()
+                raise SessionError(self._last_error or "企业微信验证码已失效，已停止自动重发")
+            if self._mfa_paused:
+                raise SessionError(self._last_error or "企业微信验证码已失效，已停止自动重发")
             if not self._pending:
                 raise SessionError("当前没有等待验证码的登录")
             p = self._pending
@@ -364,10 +394,30 @@ class SessionManager:
             return {"status": "error", "error": "重发验证码返回异常页面"}
 
     def ensure_login(self, force: bool = False, mfa_code: str | None = None) -> dict:
-        """确保存在可用会话（供 API 调用）：必要时自动登录，可带 mfa_code 一步完成."""
+        """确保存在可用会话（供 API 调用）：必要时自动登录，可带 mfa_code 一步完成.
+
+        已进入企业微信验证码阶段时不再自动发起新登录，避免保活/自动刷新反复
+        触发新验证码；验证码过期后停止自动重发，必须用户手动重新登录。
+        """
         with self._lock:
             if not force and self._client is not None and self._tgc_valid():
                 return {"ok": True, "reused": True, **self.status()}
+
+            if self._mfa_expired():
+                self._pause_expired_mfa()
+            if self._pending is not None:
+                if mfa_code:
+                    r2 = self.complete_mfa(mfa_code)
+                    if r2["status"] != "ok":
+                        raise SessionError(r2.get("error") or "二次验证失败",
+                                           mfa_required=self.pending_mfa())
+                    return {"ok": True, "reused": False, "mfa_used": True, **self.status()}
+                raise SessionError(
+                    "等待企业微信验证码输入，已停止自动重新发送验证码",
+                    mfa_required=True)
+            if self._mfa_paused:
+                raise SessionError(
+                    self._last_error or "企业微信验证码已失效，已停止自动重发")
 
             if not self.credentials.username or not self.credentials.password:
                 self._last_error = "缺少统一认证账号/密码，无法自动登录"
@@ -396,6 +446,7 @@ class SessionManager:
             self._cookies = {}
             self._meta = {}
             self._pending = None
+            self._mfa_paused = False
             self._last_error = None
             self._valid = None
             self._valid_checked_at = None

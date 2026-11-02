@@ -835,6 +835,7 @@ _DASHBOARD_TMPL = """<!doctype html>
             <button type="button" class="green" onclick="submitMfa()">提交验证码</button>
             <button type="button" class="gray" onclick="resendMfa()">重新发送</button>
           </div>
+          <div class="note">验证码约 5 分钟有效；过期后不会自动重发，请手动重新登录。</div>
         </div>
         <div class="note" id="captcha-debug"></div>
       </div>

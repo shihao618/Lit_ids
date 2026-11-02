@@ -275,15 +275,69 @@ _FIXED_PNG_B64 = (
     "nZyc/BGET4bp5E4cEwlcJxqQXTNeD2Tg4vVb4mdl4BJHEK8BGbh4/Zb4WRm4xBHEa0AGLl6/JX5WBi5xBPEakIGL12+Jn5WBSxxB"
     "vAZk4OL1W+JnZeASRxCvAf8DVNE6brJTOd4AAAAASUVORK5CYII="
 )
-_FIXED_RGBA = None
+# 服务端内置的第二套滑块模板 (tianai-captcha slider_2/fixed.png, 110x110)
+_FIXED_PNG_B64_B = (
+    "iVBORw0KGgoAAAANSUhEUgAAAG4AAABuCAYAAADGWyb7AAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyZp"
+    "VFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlk"
+    "Ij8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuNi1jMTQ1IDc5"
+    "LjE2MzQ5OSwgMjAxOC8wOC8xMy0xNjo0MDoyMiAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9y"
+    "Zy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRw"
+    "Oi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1s"
+    "bnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0i"
+    "QWRvYmUgUGhvdG9zaG9wIENDIDIwMTkgKFdpbmRvd3MpIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjE4Qjg4MkVDMTQxMjEx"
+    "RUJBOTMyREFCQzAyNENFRTc0IiB4bXBNTTpEb2N1bWVudElEPSJ4bXAuZGlkOjE4Qjg4MkVEMTQxMjExRUJBOTMyREFCQzAyNENF"
+    "RTc0Ij4gPHhtcE1NOkRlcml2ZWRGcm9tIHN0UmVmOmluc3RhbmNlSUQ9InhtcC5paWQ6MThCODgyRUExNDEyMTFFQkE5MzJEQUJD"
+    "MDI0Q0VFNzQiIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6MThCODgyRUIxNDEyMTFFQkE5MzJEQUJDMDI0Q0VFNzQiLz4gPC9y"
+    "ZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz71V8U+AAAKbklEQVR42uyd"
+    "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"
+)
+_FIXED_RGBA: dict[str, np.ndarray] = {}
 
 
-def _fixed_rgba():
+def _fixed_rgba(style: str = "A"):
+    """按模板样式加载内嵌的 fixed.png；当前内置 A、B 两套."""
     global _FIXED_RGBA
-    if _FIXED_RGBA is None:
-        img = Image.open(io.BytesIO(base64.b64decode(_FIXED_PNG_B64))).convert("RGBA")
-        _FIXED_RGBA = np.asarray(img, dtype=np.float64)
-    return _FIXED_RGBA
+    style = style if style in ("A", "B") else "A"
+    if style not in _FIXED_RGBA:
+        raw = _FIXED_PNG_B64_B if style == "B" else _FIXED_PNG_B64
+        img = Image.open(io.BytesIO(base64.b64decode(raw))).convert("RGBA")
+        _FIXED_RGBA[style] = np.asarray(img, dtype=np.float64)
+    return _FIXED_RGBA[style]
 
 
 def _data_url_to_image(s):
@@ -323,18 +377,19 @@ def recognize_slider_x(bg_img, tpl_img):
     style = "A" if (w, h, x0) == (88, 88, 11) else ("B" if (w, h, x0) == (82, 83, 15) else "?%dx%d@%d" % (w, h, x0))
     info = {"style": style, "piece_bbox_in_strip": [x0, y0, w, h]}
 
-    if style != "A":
-        # 目前内置模板只覆盖第一套滑块(约占 70% 的验证码). 识别不了就让调用方重新获取.
+    if style not in ("A", "B"):
         info["reason"] = "未内置该滑块模板(%s), 重新获取验证码" % style
         return None, info
 
-    fixed = _fixed_rgba()
+    fixed = _fixed_rgba(style)
     fh, fw = fixed.shape[:2]                      # 110 x 110
     fa = fixed[:, :, 3] / 255.0
     frgb = fixed[:, :, :3]
     inner = fixed[:, :, 3] > 100
 
-    random_y = y0 - 11                            # fixed.png 内容在画布中的 y 偏移 = 11
+    fixed_ys, fixed_xs = np.where(fixed[:, :, 3] > 200)
+    fixed_y0 = int(fixed_ys.min())
+    random_y = y0 - fixed_y0                      # fixed.png 内容在画布中的 y 偏移
     if random_y < 0 or random_y + fh > tpl_h:
         return None, {"reason": "randomY 越界"}
 
@@ -365,7 +420,7 @@ def recognize_slider_x(bg_img, tpl_img):
 
 def recognize_ok(info, random_x):
     """判断识别结果是否足够可信 (不佳则重新获取验证码)."""
-    if random_x is None or info.get("style") != "A":
+    if random_x is None or info.get("style") not in ("A", "B"):
         return False
     return info.get("residual", 1e9) < 15.0 and info.get("margin", 0) > 1.6
 
