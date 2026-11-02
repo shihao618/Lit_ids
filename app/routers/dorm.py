@@ -19,6 +19,13 @@ router = APIRouter(prefix="/api/v1/dorm", tags=["智能查寝"],
                    dependencies=[Depends(require_api_key)])
 
 
+@router.get("/checkin-locations",
+            summary="智能查寝-获取所有可打卡地点")
+def checkin_locations(system: XsfwSystem = Depends(get_xsfw)) -> dict[str, Any]:
+    """返回当前学生可用的所有签到地点（名称/经纬度/允许半径）."""
+    return system.checkin_locations()
+
+
 @router.post("/location-checkin",
              summary="智能查寝-定位签到")
 def location_checkin(body: LocationCheckinIn,

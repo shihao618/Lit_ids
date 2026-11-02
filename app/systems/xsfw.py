@@ -399,6 +399,30 @@ class XsfwSystem(BaseSystem):
             return data.get("data") or {}
 
     @staticmethod
+    def _student_locations(data: dict) -> list[dict]:
+        locations = []
+        for item in data.get("DD_LIST") or []:
+            try:
+                locations.append({
+                    "name": item.get("QDDD") or "",
+                    "latitude": float(item.get("WDZB")),
+                    "longitude": float(item.get("JDZB")),
+                    "radius": float(item.get("YXFW") or 0),
+                })
+            except (TypeError, ValueError):
+                continue
+        return locations
+
+    def checkin_locations(self) -> dict:
+        """获取当前学生可用的所有打卡地点（围栏中心 + 半径）."""
+        data = self.student_kq_info()
+        locations = self._student_locations(data)
+        return {"code": 0, "msg": "ok", "data": {
+            "total": len(locations),
+            "locations": locations,
+        }}
+
+    @staticmethod
     def _distance_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
         """Haversine 距离（米）."""
         r = 6371000.0
