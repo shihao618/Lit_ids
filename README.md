@@ -312,16 +312,11 @@ curl -X POST "http://127.0.0.1:10381/api/v1/lljw/schedule" \
 ### 4.3 学生查寝-签到地点
 
 ```bash
-# 默认：全部地点
 curl -H "X-API-Key: <你的 API Key>" \
   http://127.0.0.1:10381/api/v1/dorm/checkin-locations
-
-# 只看自己宿舍楼对应的地点
-curl -H "X-API-Key: <你的 API Key>" \
-  "http://127.0.0.1:10381/api/v1/dorm/checkin-locations?mine=true"
 ```
 
-返回签到地点：`name`、`latitude`、`longitude`、`radius`；`mine=true` 时额外返回 `mine`、`building`，且 `locations` 只包含自己宿舍楼对应项。
+只返回当前账号允许的签到地点（自己宿舍楼）：`building` + `locations`（`name`、`latitude`、`longitude`、`radius`）。
 
 ### 4.4 学生查寝-定位签到
 

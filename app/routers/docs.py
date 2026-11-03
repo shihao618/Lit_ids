@@ -62,7 +62,7 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
     },
     ("GET", "/api/v1/dorm/checkin-locations"): {
         "response": {"code": 0, "msg": "ok", "data": {
-            "total": 31, "mine": False, "building": "",
+            "total": 1, "building": "璁苑2号学生公寓",
             "locations": [{
                 "name": "洛阳理工学院(开元校区)璁苑2号学生公寓",
                 "latitude": 34.615408,
