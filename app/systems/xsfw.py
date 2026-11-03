@@ -524,6 +524,16 @@ class XsfwSystem(BaseSystem):
             return "无需考勤", "not_required"
         return "未签到", "not_checked_in"
 
+    @staticmethod
+    def _account_allowed_locations(data: dict) -> list[dict]:
+        """当前账号自己的宿舍楼对应的签到围栏（定位打卡只允许这些）."""
+        ssl = data.get("SSL_INFO") or {}
+        building = str(ssl.get("SSLDM_DISPLAY") or "").strip()
+        if not building:
+            return []
+        return [item for item in (data.get("DD_LIST") or [])
+                if building in str(item.get("QDDD") or "")]
+
     @classmethod
     def _coord_candidates(cls, dd_list: list[dict], latitude: float,
                           longitude: float) -> list[dict]:
@@ -548,7 +558,10 @@ class XsfwSystem(BaseSystem):
                          coord_type: str = "auto") -> dict:
         """学生定位签到：自动/指定坐标系转为 BD09 后复核资格并提交."""
         data = self.student_kq_info()
-        dd_list = data.get("DD_LIST") or []
+        # 只允许当前账号自己宿舍楼对应的签到围栏，不使用全校所有围栏
+        dd_list = self._account_allowed_locations(data)
+        if not dd_list:
+            return {"code": 1, "msg": "当前账号没有允许的打卡地点", "data": None}
         candidates = None
         if (coord_type or "auto").strip().lower() == "auto":
             candidates = self._coord_candidates(dd_list, latitude, longitude)

@@ -912,7 +912,7 @@ _DASHBOARD_TMPL = """<!doctype html>
           <button type="button" class="gray" onclick="testCheckinLocations()">获取可打卡地点</button>
           <label style="display:inline-flex;align-items:center;gap:4px;margin:0"><input type="checkbox" id="checkin-locations-mine" style="width:auto"> 只看我的</label>
         </div>
-        <div class="note">服务端会校验考勤时间、名单、请假/归宿状态和签到围栏；不符合时不会提交。</div>
+        <div class="note">服务端会校验考勤时间、名单、请假/归宿状态，并且只允许当前账号自己宿舍楼对应的签到围栏；不符合时不会提交。</div>
         <pre id="location-checkin-out">（接口自测结果）</pre>
         <pre id="checkin-locations-out">（可打卡地点）</pre>
       </div>

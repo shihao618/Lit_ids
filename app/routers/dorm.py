@@ -40,7 +40,8 @@ def location_checkin(body: LocationCheckinIn,
 
     调用方只传 `latitude` / `longitude`（以及可选 `coordType`）；服务端自动完成
     角色切换、WGS84/GCJ02/BD09 坐标转换、状态查询、考勤资格判断、最近围栏
-    距离校验和签到提交，并回读最新状态。
+    距离校验和签到提交，并回读最新状态。定位打卡只允许当前账号自己宿舍楼
+    对应的签到围栏。
 
     例：
     ```json

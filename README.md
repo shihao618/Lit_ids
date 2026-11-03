@@ -339,7 +339,7 @@ curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json
   http://127.0.0.1:10381/api/v1/dorm/location-checkin
 ```
 
-返回 `submitted`、命中的签到点/距离、资格检查结果和签到后状态；不符合考勤时间、名单、请假、归宿状态或围栏条件时不会提交。
+返回 `submitted`、命中的签到点/距离、资格检查结果和签到后状态；只允许当前账号自己宿舍楼对应的签到围栏，不符合考勤时间、名单、请假、归宿状态或围栏条件时不会提交。
 
 ### 4.5 多用户与 API Key 规则
 
