@@ -317,7 +317,7 @@ def test_location_checkin(body: LocationCheckinIn,
                           system=Depends(get_admin_xsfw)) -> dict[str, Any]:
     try:
         return {"ok": True, "data": system.location_checkin(
-            body.latitude, body.longitude)}
+            body.latitude, body.longitude, body.coordType)}
     except (SystemError, SessionError) as e:
         return _err(e)
 
