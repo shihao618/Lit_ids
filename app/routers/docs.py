@@ -76,11 +76,21 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
                     "coordType": "auto"},
         "response": {"code": 0, "msg": "ok", "data": {
             "submitted": True,
+            "input": {"latitude": 34.610278, "longitude": 112.409723,
+                      "coordType": "auto"},
+            "converted": {"latitude": 34.6154091, "longitude": 112.4225198,
+                          "coordType": "bd09"},
+            "detectedCoordType": "wgs84",
             "location": {
                 "name": "洛阳理工学院(开元校区)璁苑2号学生公寓",
                 "latitude": 34.615408, "longitude": 112.422575,
-                "radius": 100.0, "distance": 2.5,
+                "radius": 100.0, "distance": 5.1,
             },
+            "candidates": [
+                {"coordType": "wgs84", "distance": 5.1},
+                {"coordType": "gcj02", "distance": 588.3},
+                {"coordType": "bd09", "distance": 1307.2},
+            ],
             "checks": {
                 "inDate": True, "inTime": True, "inCheckinList": True,
                 "onLeave": False, "alreadyNormal": False, "alreadyLate": False,

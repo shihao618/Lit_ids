@@ -43,9 +43,12 @@ def location_checkin(body: LocationCheckinIn,
     距离校验和签到提交，并回读最新状态。定位打卡只允许当前账号自己宿舍楼
     对应的签到围栏。
 
+    默认 `coordType` 为 `auto`，自动识别 WGS84/GCJ02/BD09；也可以显式指定。
+    返回结果同时给出 `converted`（BD09）和 `detectedCoordType`。
+
     例：
     ```json
-    {"latitude": 34.610278, "longitude": 112.409723, "coordType": "wgs84"}
+    {"latitude": 34.610278, "longitude": 112.409723, "coordType": "auto"}
     ```
     """
 
