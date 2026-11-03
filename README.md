@@ -325,10 +325,10 @@ curl -H "X-API-Key: <你的 API Key>" \
 
 ### 4.4 学生查寝-定位签到
 
-调用方传经纬度（默认 WGS84），服务端先转换到百度 BD09，再完成学生查寝角色切换、状态查询、资格判断、最近围栏距离校验和签到提交。
+调用方传经纬度（默认自动识别坐标系），服务端先转换到百度 BD09，再完成学生查寝角色切换、状态查询、资格判断、最近围栏距离校验和签到提交。
 
 ```bash
-# 默认按 WGS84 输入
+# 默认自动识别 WGS84/GCJ02/BD09
 curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json" \
   -d '{"latitude":34.610278,"longitude":112.409723}' \
   http://127.0.0.1:10381/api/v1/dorm/location-checkin

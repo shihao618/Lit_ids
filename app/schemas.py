@@ -125,8 +125,8 @@ class LocationCheckinIn(BaseModel):
 
     latitude: float = Field(..., ge=-90, le=90, description="纬度")
     longitude: float = Field(..., ge=-180, le=180, description="经度")
-    coordType: Literal["wgs84", "gcj02", "bd09"] = Field(
-        "wgs84", description="输入坐标系：wgs84（手机GPS，默认）/ gcj02 / bd09")
+    coordType: Literal["auto", "wgs84", "gcj02", "bd09"] = Field(
+        "auto", description="输入坐标系：auto（自动识别，默认）/ wgs84 / gcj02 / bd09")
 
 
 class ScheduleIn(BaseModel):

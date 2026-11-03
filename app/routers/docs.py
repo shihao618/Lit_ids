@@ -73,7 +73,7 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
     },
     ("POST", "/api/v1/dorm/location-checkin"): {
         "request": {"latitude": 34.610278, "longitude": 112.409723,
-                    "coordType": "wgs84"},
+                    "coordType": "auto"},
         "response": {"code": 0, "msg": "ok", "data": {
             "submitted": True,
             "location": {

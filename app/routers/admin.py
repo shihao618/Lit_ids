@@ -903,6 +903,7 @@ _DASHBOARD_TMPL = """<!doctype html>
           <input id="test-latitude" value="34.610278" placeholder="latitude 纬度" style="width:170px">
           <input id="test-longitude" value="112.409723" placeholder="longitude 经度" style="width:170px">
           <select id="test-coord-type" style="width:120px" title="输入坐标系">
+            <option value="auto" selected>自动识别</option>
             <option value="wgs84">WGS84</option>
             <option value="gcj02">GCJ02</option>
             <option value="bd09">BD09</option>

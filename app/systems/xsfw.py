@@ -524,19 +524,56 @@ class XsfwSystem(BaseSystem):
             return "无需考勤", "not_required"
         return "未签到", "not_checked_in"
 
+    @classmethod
+    def _coord_candidates(cls, dd_list: list[dict], latitude: float,
+                          longitude: float) -> list[dict]:
+        """分别按 WGS84/GCJ02/BD09 转换，返回候选及最近围栏距离."""
+        candidates = []
+        for kind in ("wgs84", "gcj02", "bd09"):
+            try:
+                bd_lat, bd_lng = to_bd09(latitude, longitude, kind)
+            except ValueError:
+                continue
+            location = cls._nearest_location(dd_list, bd_lat, bd_lng)
+            candidates.append({
+                "coordType": kind,
+                "converted": {"latitude": round(bd_lat, 7),
+                              "longitude": round(bd_lng, 7), "coordType": "bd09"},
+                "location": location,
+                "distance": location["distance"] if location else None,
+            })
+        return candidates
+
     def location_checkin(self, latitude: float, longitude: float,
-                         coord_type: str = "wgs84") -> dict:
-        """学生定位签到：把输入坐标转换为 BD09 后复核资格并提交."""
-        # 学校围栏（DD_LIST）是 BD09；先把输入坐标统一转换到 BD09
-        bd_lat, bd_lng = to_bd09(latitude, longitude, coord_type)
+                         coord_type: str = "auto") -> dict:
+        """学生定位签到：自动/指定坐标系转为 BD09 后复核资格并提交."""
         data = self.student_kq_info()
         dd_list = data.get("DD_LIST") or []
-        location = self._nearest_location(dd_list, bd_lat, bd_lng)
+        candidates = None
+        if (coord_type or "auto").strip().lower() == "auto":
+            candidates = self._coord_candidates(dd_list, latitude, longitude)
+            if not candidates:
+                return {"code": 1, "msg": "没有可用的签到地点", "data": None}
+            best = min(candidates, key=lambda item: (
+                item["distance"] if item["distance"] is not None else 1e18))
+            bd_lat = best["converted"]["latitude"]
+            bd_lng = best["converted"]["longitude"]
+            location = best["location"]
+            detected_type = best["coordType"]
+        else:
+            detected_type = (coord_type or "wgs84").strip().lower()
+            bd_lat, bd_lng = to_bd09(latitude, longitude, detected_type)
+            location = self._nearest_location(dd_list, bd_lat, bd_lng)
+
         if not location:
             return {"code": 1, "msg": "没有可用的签到地点", "data": None}
         checks = self._student_checks(data, location)
+        extra = {}
+        if candidates is not None:
+            extra = {"detectedCoordType": detected_type,
+                     "candidates": candidates}
         if not checks["canSign"]:
-            return {"code": 0, "msg": "ok", "data": {
+            data_out = {
                 "submitted": False,
                 "reason": checks["reason"],
                 "checks": checks["checks"],
@@ -545,7 +582,9 @@ class XsfwSystem(BaseSystem):
                 "converted": {"latitude": round(bd_lat, 7),
                               "longitude": round(bd_lng, 7), "coordType": "bd09"},
                 "location": location,
-            }}
+            }
+            data_out.update(extra)
+            return {"code": 0, "msg": "ok", "data": data_out}
         chosen_address = location["name"]
         status, text = self._post_data(
             self.ADD_KQ_INFO_PATH,
@@ -554,26 +593,27 @@ class XsfwSystem(BaseSystem):
         upstream = self._parse_json(status, text, "addKqInfo")
         if str(upstream.get("code")) not in ("0", "200"):
             return {"code": 1, "msg": "打卡失败: %s" % upstream.get("msg"),
-                    "data": {"submitted": False, "upstream": upstream,
-                             "input": {"latitude": latitude, "longitude": longitude,
-                                       "coordType": coord_type},
-                             "converted": {"latitude": round(bd_lat, 7),
-                                           "longitude": round(bd_lng, 7),
-                                           "coordType": "bd09"},
-                             "location": location, "checks": checks["checks"]}}
+                    "data": {**{"submitted": False, "upstream": upstream,
+                               "input": {"latitude": latitude, "longitude": longitude,
+                                         "coordType": coord_type},
+                               "converted": {"latitude": round(bd_lat, 7),
+                                             "longitude": round(bd_lng, 7),
+                                             "coordType": "bd09"},
+                               "location": location, "checks": checks["checks"]},
+                             **extra}}
         latest = self.student_kq_info()
         latest_status, latest_code = self._student_status_text(latest)
         latest_qd = latest.get("QD_INFO") or {}
-        return {"code": 0, "msg": "ok", "data": {
-            "submitted": True,
-            "input": {"latitude": latitude, "longitude": longitude,
-                      "coordType": coord_type},
-            "converted": {"latitude": round(bd_lat, 7),
-                          "longitude": round(bd_lng, 7), "coordType": "bd09"},
-            "location": location,
-            "checks": checks["checks"],
-            "address": chosen_address,
-            "upstream": upstream,
-            "after": {"status": latest_status, "statusCode": latest_code,
-                      "checkinTime": latest_qd.get("GSSJ") or ""},
-        }}
+        out = {"submitted": True,
+               "input": {"latitude": latitude, "longitude": longitude,
+                         "coordType": coord_type},
+               "converted": {"latitude": round(bd_lat, 7),
+                             "longitude": round(bd_lng, 7), "coordType": "bd09"},
+               "location": location,
+               "checks": checks["checks"],
+               "address": chosen_address,
+               "upstream": upstream,
+               "after": {"status": latest_status, "statusCode": latest_code,
+                         "checkinTime": latest_qd.get("GSSJ") or ""}}
+        out.update(extra)
+        return {"code": 0, "msg": "ok", "data": out}
