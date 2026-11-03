@@ -302,9 +302,12 @@ def test_check_records(
 
 
 @api.get("/test/checkin-locations", summary="自测：智能查寝-可打卡地点")
-def test_checkin_locations(system=Depends(get_admin_xsfw)) -> dict[str, Any]:
+def test_checkin_locations(
+    mine: bool = Query(False, description="true=只看自己宿舍楼"),
+    system=Depends(get_admin_xsfw),
+) -> dict[str, Any]:
     try:
-        return {"ok": True, "data": system.checkin_locations()}
+        return {"ok": True, "data": system.checkin_locations(mine=mine)}
     except (SystemError, SessionError) as e:
         return _err(e)
 
@@ -901,6 +904,7 @@ _DASHBOARD_TMPL = """<!doctype html>
           <input id="test-longitude" value="112.422575" placeholder="longitude 经度" style="width:170px">
           <button type="button" onclick="testLocationCheckin()">提交</button>
           <button type="button" class="gray" onclick="testCheckinLocations()">获取可打卡地点</button>
+          <label style="display:inline-flex;align-items:center;gap:4px;margin:0"><input type="checkbox" id="checkin-locations-mine" style="width:auto"> 只看我的</label>
         </div>
         <div class="note">服务端会校验考勤时间、名单、请假/归宿状态和签到围栏；不符合时不会提交。</div>
         <pre id="location-checkin-out">（接口自测结果）</pre>
@@ -1201,7 +1205,8 @@ async function testLocationCheckin(){
   $('location-checkin-out').textContent=JSON.stringify(r,null,2);
 }
 async function testCheckinLocations(){
-  const r=await api('/admin/api/test/checkin-locations');
+  const mine=$('checkin-locations-mine').checked;
+  const r=await api('/admin/api/test/checkin-locations'+(mine?'?mine=true':''));
   $('checkin-locations-out').textContent=JSON.stringify(r,null,2);
 }
 async function createUser(){

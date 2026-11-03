@@ -413,12 +413,26 @@ class XsfwSystem(BaseSystem):
                 continue
         return locations
 
-    def checkin_locations(self) -> dict:
-        """获取当前学生可用的所有打卡地点（围栏中心 + 半径）."""
+    def checkin_locations(self, mine: bool = False) -> dict:
+        """获取当前学生可用的打卡地点（围栏中心 + 半径）.
+
+        :param mine: False=全部；True=只返回当前学生自己宿舍楼对应的地点
+        """
         data = self.student_kq_info()
         locations = self._student_locations(data)
+        building = ""
+        if mine:
+            ssl = data.get("SSL_INFO") or {}
+            building = str(ssl.get("SSLDM_DISPLAY") or "").strip()
+            if building:
+                locations = [item for item in locations
+                             if building in item.get("name", "")]
+            else:
+                locations = []
         return {"code": 0, "msg": "ok", "data": {
             "total": len(locations),
+            "mine": bool(mine),
+            "building": building,
             "locations": locations,
         }}
 
