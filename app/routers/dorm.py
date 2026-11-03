@@ -38,16 +38,17 @@ def location_checkin(body: LocationCheckinIn,
                      system: XsfwSystem = Depends(get_xsfw)) -> dict[str, Any]:
     """用真实经纬度提交当前学生定位签到。
 
-    调用方只传 `latitude` / `longitude`；服务端自动完成角色切换、状态查询、
-    考勤资格判断、最近围栏距离校验和签到提交，并回读最新状态。
+    调用方只传 `latitude` / `longitude`（以及可选 `coordType`）；服务端自动完成
+    角色切换、WGS84/GCJ02/BD09 坐标转换、状态查询、考勤资格判断、最近围栏
+    距离校验和签到提交，并回读最新状态。
 
     例：
     ```json
-    {"latitude": 34.615408, "longitude": 112.422575}
+    {"latitude": 34.610278, "longitude": 112.409723, "coordType": "wgs84"}
     ```
     """
 
-    return system.location_checkin(body.latitude, body.longitude)
+    return system.location_checkin(body.latitude, body.longitude, body.coordType)
 
 
 @router.post("/check-records",

@@ -900,8 +900,13 @@ _DASHBOARD_TMPL = """<!doctype html>
         <h2>接口自测（定位签到 · 使用我自己的会话）</h2>
         <div class="row">
           <span>经纬度：</span>
-          <input id="test-latitude" value="34.615408" placeholder="latitude 纬度" style="width:170px">
-          <input id="test-longitude" value="112.422575" placeholder="longitude 经度" style="width:170px">
+          <input id="test-latitude" value="34.610278" placeholder="latitude 纬度" style="width:170px">
+          <input id="test-longitude" value="112.409723" placeholder="longitude 经度" style="width:170px">
+          <select id="test-coord-type" style="width:120px" title="输入坐标系">
+            <option value="wgs84">WGS84</option>
+            <option value="gcj02">GCJ02</option>
+            <option value="bd09">BD09</option>
+          </select>
           <button type="button" onclick="testLocationCheckin()">提交</button>
           <button type="button" class="gray" onclick="testCheckinLocations()">获取可打卡地点</button>
           <label style="display:inline-flex;align-items:center;gap:4px;margin:0"><input type="checkbox" id="checkin-locations-mine" style="width:auto"> 只看我的</label>
@@ -1196,7 +1201,9 @@ async function testCheckRecords(){
   $('check-records-out').textContent=JSON.stringify(r,null,2);
 }
 async function testLocationCheckin(){
-  const body={latitude:Number($('test-latitude').value),longitude:Number($('test-longitude').value)};
+  const body={latitude:Number($('test-latitude').value),
+              longitude:Number($('test-longitude').value),
+              coordType:$('test-coord-type').value};
   if(!Number.isFinite(body.latitude)||!Number.isFinite(body.longitude)){
     $('location-checkin-out').textContent='请输入合法的经纬度';
     return;

@@ -325,11 +325,17 @@ curl -H "X-API-Key: <你的 API Key>" \
 
 ### 4.4 学生查寝-定位签到
 
-调用方只传经纬度，服务端自动完成学生查寝角色切换、状态查询、资格判断、最近围栏距离校验和签到提交。
+调用方传经纬度（默认 WGS84），服务端先转换到百度 BD09，再完成学生查寝角色切换、状态查询、资格判断、最近围栏距离校验和签到提交。
 
 ```bash
+# 默认按 WGS84 输入
 curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json" \
-  -d '{"latitude":34.6154,"longitude":112.4226}' \
+  -d '{"latitude":34.610278,"longitude":112.409723}' \
+  http://127.0.0.1:10381/api/v1/dorm/location-checkin
+
+# 如果已有 BD09 坐标，传 coordType=bd09
+curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json" \
+  -d '{"latitude":34.615409,"longitude":112.422520,"coordType":"bd09"}' \
   http://127.0.0.1:10381/api/v1/dorm/location-checkin
 ```
 

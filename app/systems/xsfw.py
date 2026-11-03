@@ -19,6 +19,7 @@ import urllib.parse
 
 import lit_login as L
 
+from ..geo import to_bd09
 from ..session import SessionManager
 from .base import BaseSystem, SystemError
 
@@ -523,11 +524,14 @@ class XsfwSystem(BaseSystem):
             return "无需考勤", "not_required"
         return "未签到", "not_checked_in"
 
-    def location_checkin(self, latitude: float, longitude: float) -> dict:
-        """学生定位签到：调用方提供经纬度，服务端复核资格后提交."""
+    def location_checkin(self, latitude: float, longitude: float,
+                         coord_type: str = "wgs84") -> dict:
+        """学生定位签到：把输入坐标转换为 BD09 后复核资格并提交."""
+        # 学校围栏（DD_LIST）是 BD09；先把输入坐标统一转换到 BD09
+        bd_lat, bd_lng = to_bd09(latitude, longitude, coord_type)
         data = self.student_kq_info()
         dd_list = data.get("DD_LIST") or []
-        location = self._nearest_location(dd_list, latitude, longitude)
+        location = self._nearest_location(dd_list, bd_lat, bd_lng)
         if not location:
             return {"code": 1, "msg": "没有可用的签到地点", "data": None}
         checks = self._student_checks(data, location)
@@ -536,23 +540,36 @@ class XsfwSystem(BaseSystem):
                 "submitted": False,
                 "reason": checks["reason"],
                 "checks": checks["checks"],
+                "input": {"latitude": latitude, "longitude": longitude,
+                          "coordType": coord_type},
+                "converted": {"latitude": round(bd_lat, 7),
+                              "longitude": round(bd_lng, 7), "coordType": "bd09"},
                 "location": location,
             }}
         chosen_address = location["name"]
         status, text = self._post_data(
             self.ADD_KQ_INFO_PATH,
-            {"KQWZXX": chosen_address, "JDZB": str(longitude), "WDZB": str(latitude)},
+            {"KQWZXX": chosen_address, "JDZB": str(bd_lng), "WDZB": str(bd_lat)},
             referer=self.STUDENT_INDEX)
         upstream = self._parse_json(status, text, "addKqInfo")
         if str(upstream.get("code")) not in ("0", "200"):
             return {"code": 1, "msg": "打卡失败: %s" % upstream.get("msg"),
                     "data": {"submitted": False, "upstream": upstream,
+                             "input": {"latitude": latitude, "longitude": longitude,
+                                       "coordType": coord_type},
+                             "converted": {"latitude": round(bd_lat, 7),
+                                           "longitude": round(bd_lng, 7),
+                                           "coordType": "bd09"},
                              "location": location, "checks": checks["checks"]}}
         latest = self.student_kq_info()
         latest_status, latest_code = self._student_status_text(latest)
         latest_qd = latest.get("QD_INFO") or {}
         return {"code": 0, "msg": "ok", "data": {
             "submitted": True,
+            "input": {"latitude": latitude, "longitude": longitude,
+                      "coordType": coord_type},
+            "converted": {"latitude": round(bd_lat, 7),
+                          "longitude": round(bd_lng, 7), "coordType": "bd09"},
             "location": location,
             "checks": checks["checks"],
             "address": chosen_address,
