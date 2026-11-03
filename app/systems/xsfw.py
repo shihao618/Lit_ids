@@ -583,8 +583,12 @@ class XsfwSystem(BaseSystem):
         checks = self._student_checks(data, location)
         extra = {}
         if candidates is not None:
+            # 只保留候选的坐标/距离；命中的签到点已在外层 location 返回，避免重复
             extra = {"detectedCoordType": detected_type,
-                     "candidates": candidates}
+                     "candidates": [{"coordType": item["coordType"],
+                                      "converted": item["converted"],
+                                      "distance": item["distance"]}
+                                    for item in candidates]}
         if not checks["canSign"]:
             data_out = {
                 "submitted": False,
