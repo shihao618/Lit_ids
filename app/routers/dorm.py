@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from ..deps import get_xsfw, require_api_key
 from ..schemas import CheckRecordsIn, LocationCheckinIn
@@ -22,13 +22,14 @@ router = APIRouter(prefix="/api/v1/dorm", tags=["智能查寝"],
 @router.get("/checkin-locations",
             summary="智能查寝-获取可打卡地点")
 def checkin_locations(
+    mine: bool = Query(False, description="false=全部地点；true=只返回自己宿舍楼对应地点"),
     system: XsfwSystem = Depends(get_xsfw),
 ) -> dict[str, Any]:
-    """返回当前账号允许的签到地点（名称/经纬度/允许半径）.
+    """返回当前学生可用的签到地点（名称/经纬度/允许半径）.
 
-    只返回当前学生自己宿舍楼对应的地点，不再列出全部宿舍。
+    默认返回全部地点；传 `?mine=true` 只返回当前学生宿舍楼对应的地点。
     """
-    return system.checkin_locations()
+    return system.checkin_locations(mine=mine)
 
 
 @router.post("/location-checkin",
