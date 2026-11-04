@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import time
 import urllib.parse
 
 import lit_login as L
@@ -330,6 +331,7 @@ class XsfwSystem(BaseSystem):
             items: list[dict] = []
             total = 0
             page = 1
+            retried_empty = False
             while True:
                 fields = {
                     "querySetting": query_setting,
@@ -347,6 +349,17 @@ class XsfwSystem(BaseSystem):
                 except (TypeError, ValueError):
                     total = 0
                 rows = table.get("rows") or []
+                if total == 0 and not rows and not retried_empty and page == 1:
+                    # 偶发：首次请求时角色/SSO 上下文尚未就绪，上游返回空表。
+                    # 重建 xsfw SSO 并重新设置角色后重试一次，避免把空结果返回给调用方。
+                    retried_empty = True
+                    log.warning("[%s] 查寝记录首次返回空，重建 SSO/角色后重试", self.label)
+                    self._sso_ready = False
+                    self._role = None
+                    self.ensure_session(force=True)
+                    self.set_role(None)
+                    time.sleep(0.3)
+                    continue
                 items.extend(self._map_student(row) for row in rows if isinstance(row, dict))
                 if not rows or len(items) >= total or len(rows) < PAGE_SIZE:
                     break
