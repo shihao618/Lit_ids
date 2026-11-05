@@ -353,7 +353,7 @@ class XsfwSystem(BaseSystem):
                     # 偶发：首次请求时角色/SSO 上下文尚未就绪，上游返回空表。
                     # 重建 xsfw SSO 并重新设置角色后重试一次，避免把空结果返回给调用方。
                     retried_empty = True
-                    log.warning("[%s] 查寝记录首次返回空，重建 SSO/角色后重试", self.label)
+                    log.warning("[%s] 查寝记录首次返回空，重建 SSO/角色后重试", self.name)
                     self._sso_ready = False
                     self._role = None
                     self.ensure_session(force=True)
