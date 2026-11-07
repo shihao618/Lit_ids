@@ -53,6 +53,7 @@ from ..session import SessionError
 from ..settings_store import DEFAULTS, EDITABLE, apply_log_level
 from ..systems import SystemError
 from ..users import UserStore
+from ..webui import RESPONSIVE_CSS
 
 log = logging.getLogger(__name__)
 
@@ -627,6 +628,8 @@ input[readonly]{background:#f3f4f6;color:var(--text2)}
  pre{font-size:11.5px}
 }
 """
+
+_CSS += RESPONSIVE_CSS
 
 _LOGIN_TMPL = """<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><title>__APP_NAME__ · 后台登录</title>

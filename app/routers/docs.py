@@ -20,6 +20,8 @@ from html import escape
 from typing import Any
 
 from fastapi import APIRouter, Request
+
+from ..webui import RESPONSIVE_CSS
 from fastapi.responses import HTMLResponse
 
 router = APIRouter(tags=["前台接口文档"])
@@ -679,6 +681,8 @@ pre.result{margin-top:10px;max-height:280px;padding:12px 14px;border-radius:10px
  pre.result{font-size:11.5px}
 }
 """
+
+_CSS += RESPONSIVE_CSS
 
 DOCS_TMPL = """<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
