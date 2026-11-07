@@ -306,10 +306,14 @@ class QdzsSystem(BaseSystem):
         in_range = bool(nearest and nearest["distance"] <= nearest["radius"])
         if nearest:
             nearest = {**nearest, "inRange": in_range}
-        # DDMC 从当前坐标反查，而不是使用任务点名称
-        ddmc = self._reverse_address(bd_lat, bd_lng)
-        if not ddmc:
+        # 官方 DDMC 规则：
+        # 范围内 = 命中的签到点名称；范围外 = 当前坐标反查地址
+        if in_range:
             ddmc = nearest["name"] if nearest else "当前位置"
+        else:
+            ddmc = self._reverse_address(bd_lat, bd_lng)
+            if not ddmc:
+                ddmc = nearest["name"] if nearest else "当前位置"
         checks = {
             "taskEnded": str(rw.get("SFJS") or "0") == "1",
             "needToday": str(rw.get("JRSFXYQD") or "0") == "1",
