@@ -125,21 +125,10 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
             }]}},
     },
     ("GET", "/api/v1/xsfw/qdzs/locations"): {
-        "response": {"code": 0, "msg": "ok", "data": {
-            "task": {"rwbh": "5F5FB88605DBEAACE0638A6210AC2D19",
-                     "name": "1106-1108全校定位签到",
-                     "method": "手机定位签到", "period": "循环签到",
-                     "dateStart": "2026-11-06", "dateEnd": "2026-11-08",
-                     "timeStart": "19:40", "timeEnd": "23:00",
-                     "serverTime": "2026-11-08 19:41:00"},
-            "total": 1,
-            "locations": [{"name": "学校", "code": "5F5FB88605E5EAACE0638A6210AC2D19",
-                            "latitude": 34.612396, "longitude": 112.441906,
-                            "radius": 100.0}],
-            "DDLIST": [{"DDMC": "学校", "WD": "34.612396", "JD": "112.441906",
-                        "YXFW": 100, "DDDM": "5F5FB88605E5EAACE0638A6210AC2D19"}],
-            "QDXX": {},
-        }},
+        "response": {"code": 0, "msg": "ok", "data": [
+            {"name": "学校", "longitude": 112.441906,
+             "latitude": 34.612396, "checkin": {}},
+        ]},
     },
     ("POST", "/api/v1/xsfw/qdzs/today-signin"): {
         "request": {"latitude": 34.610278, "longitude": 112.409723,

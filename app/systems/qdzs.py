@@ -240,26 +240,20 @@ class QdzsSystem(BaseSystem):
             return {"code": 1, "msg": "没有可用的今日签到任务", "data": None}
         self._last_rwbh = rwbh
         task = self._info(rwbh)
-        rw = task.get("RWXX") or {}
-        locations = self._location_list(task)
-        return {"code": 0, "msg": "ok", "data": {
-            "task": {
-                "rwbh": rw.get("RWBH") or rwbh,
-                "name": rw.get("RWMC") or "",
-                "method": rw.get("QDFS_DISPLAY") or "",
-                "period": rw.get("QDPL_DISPLAY") or "",
-                "dateStart": rw.get("QDKSRQ") or "",
-                "dateEnd": rw.get("QDJSRQ") or "",
-                "timeStart": rw.get("QDKSSJ") or "",
-                "timeEnd": rw.get("QDJSSJ") or "",
-                "serverTime": rw.get("CURTIME") or "",
-            },
-            "total": len(locations),
-            "locations": locations,
-            # 官方原始字段，便于调用方直接使用
-            "DDLIST": task.get("DDLIST") or [],
-            "QDXX": task.get("QDXX") or {},
-        }}
+        qdxx = task.get("QDXX") or {}
+        items = []
+        for item in task.get("DDLIST") or []:
+            try:
+                items.append({
+                    # 信息使用官方字段，命名使用网关自有命名
+                    "name": str(item.get("DDMC") or ""),
+                    "longitude": float(item.get("JD")),
+                    "latitude": float(item.get("WD")),
+                    "checkin": qdxx,
+                })
+            except (TypeError, ValueError):
+                continue
+        return {"code": 0, "msg": "ok", "data": items}
 
     def today_signin(self, latitude: float, longitude: float,
                      coord_type: str = "auto") -> dict:

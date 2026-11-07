@@ -357,16 +357,16 @@ curl -H "X-API-Key: <你的 Key>" \
   http://127.0.0.1:10381/api/v1/xsfw/qdzs/locations
 ```
 
-返回：
+返回数组，每项只保留坐标和签到状态，命名使用网关字段：
 
 ```json
-{"code":0,"msg":"ok","data":{
-  "task":{"rwbh":"...","name":"1106-1108全校定位签到"},
-  "total":1,
-  "locations":[{"name":"学校","code":"...","latitude":34.612396,
-                "longitude":112.441906,"radius":100.0}]
-}}
+{"code":0,"msg":"ok","data":[
+  {"name":"学校","longitude":112.441906,"latitude":34.612396,
+   "checkin":{}}
+]}
 ```
+
+`name` 来自官方 `DDMC`，`longitude` 来自 `JD`，`latitude` 来自 `WD`，`checkin` 来自官方 `QDXX`。
 
 ### 4.6 智慧学工 / 签到助手 / 今日签到
 
