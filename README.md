@@ -10,7 +10,7 @@
 * 🔑 **每人一个 API Key**：请求头 `X-API-Key` 决定使用哪个用户的统一认证会话；重新生成后旧 Key 立即失效；
 * 📖 **前台接口文档**（`/`）：参数说明、curl 示例、请求/响应示例、在线调试，自动生成；
 * 🎓 **业务系统**：智能查寝（xsfw WIS 平台 `zncqapp`），通过 CAS SSO 免密进入；
-* ✅ **业务接口**：`POST /api/v1/dorm/check-records`（智能查寝，**自有参数/易读返回**，内部调用官方 `cqztbg.do`）。
+* ✅ **业务接口**：`POST /api/v1/xsfw/dorm-checkin/records`（智能查寝，**自有参数/易读返回**，内部调用官方 `cqztbg.do`）。
 
 > 运行参数（系统名称/日志级别/会话保活/启动自动登录）**只在后台「系统设置」修改**（`data/settings.json`），`.env` 仅用于部署与首次引导。
 
@@ -26,13 +26,15 @@
                        │   │    ├─ docs.py      前台接口文档（/）                       │
                        │   │    ├─ admin.py     菜单式后台（登录/用户管理/系统设置/重启）  │
                        │   │    ├─ auth.py      /api/v1/auth/*（按 API Key 用户）        │
-                       │   │    └─ dorm.py      智能查寝接口（自有参数/易读返回）        │
+                       │   │    ├─ dorm.py      智能查寝接口（自有参数/易读返回）        │
+                       │   │    ├─ qdzs.py      签到助手接口（今日签到）                 │
                        │   ├─ users.py          用户存储（密码哈希/API Key/每人 CAS 账号）│
                        │   ├─ registry.py       每个用户一个 SessionManager + XsfwSystem │
                        │   ├─ session.py        单用户 CAS 会话（登录/复用/MFA/持久化）  │
                        │   ├─ settings_store.py 后台「系统设置」（data/settings.json）   │
                        │   ├─ restart.py        后台「重启容器」                        │
                        │   └─ systems/xsfw.py   智能查寝适配（SSO + 角色 + check-records）│
+                       │      systems/qdzs.py   签到助手适配（SSO + 任务 + doSignIn）     │
                        │                                                              │
                        │  lit_login.py（统一认证核心：AES / 滑块验证码 / MFA / TGC）     │
                        └──────────────┬──────────────────────────┬────────────────────┘
@@ -76,7 +78,7 @@ docker compose up -d --build
 # 调用接口（每个用户用自己的 Key）
 curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json" \
      -d '{"classCode":"B260714","checkStatus":"not_returned"}' \
-     "http://127.0.0.1:10381/api/v1/dorm/check-records"
+     "http://127.0.0.1:10381/api/v1/xsfw/dorm-checkin/records"
 ```
 
 入口一览：
@@ -187,12 +189,15 @@ fnOS 上不需要源码、不需要构建，直接用 [docker-compose.fnos.yml](
 | GET | `/healthz` / `/readyz` | 健康检查（无需鉴权） |
 | GET | `/api/v1/auth/status` | 当前 API Key 用户的 CAS 会话状态 |
 | POST | `/api/v1/auth/login` | 登录/刷新当前 API Key 用户的统一认证会话（可带 `mfa_code`） |
-| **POST** | **`/api/v1/dorm/check-records`** | **智能查寝-查寝记录（自有参数/易读返回）** |
-| **POST** | **`/api/v1/lljw/schedule`** | **教务系统-课表查询（自有参数/易读返回，学期/周次可自动）** |
+| **POST** | **`/api/v1/xsfw/dorm-checkin/records`** | **智慧学工 / 智能查寝 / 查寝记录** |
+| **GET** | **`/api/v1/xsfw/dorm-checkin/locations`** | **智慧学工 / 智能查寝 / 签到地点** |
+| **POST** | **`/api/v1/xsfw/dorm-checkin/check-in`** | **智慧学工 / 智能查寝 / 定位签到** |
+| **POST** | **`/api/v1/xsfw/qdzs/today-signin`** | **智慧学工 / 签到助手 / 今日签到** |
+| **POST** | **`/api/v1/lljw/schedule`** | **教务系统 / 课表查询** |
 
-### 4.1 智能查寝-查寝记录（自有接口 / 易读返回）
+### 4.1 智慧学工 / 智能查寝 / 查寝记录
 
-`POST /api/v1/dorm/check-records`（JSON 请求体，只保留 3 个参数）
+`POST /api/v1/xsfw/dorm-checkin/records`（JSON 请求体，只保留 3 个参数）
 
 | 参数 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -218,7 +223,7 @@ fnOS 上不需要源码、不需要构建，直接用 [docker-compose.fnos.yml](
 | `late` | 晚归 |
 
 ```bash
-curl -X POST "http://127.0.0.1:10381/api/v1/dorm/check-records" \
+curl -X POST "http://127.0.0.1:10381/api/v1/xsfw/dorm-checkin/records" \
   -H "X-API-Key: <你的 Key>" -H "Content-Type: application/json" \
   -d '{"classCode":"B260714","checkStatus":"not_returned","checkStatusType":"unreachable"}'
 ```
@@ -237,7 +242,7 @@ curl -X POST "http://127.0.0.1:10381/api/v1/dorm/check-records" \
 
 > 对外只返回易读字段；内部由网关拼 `querySetting` 调用官方 `cqztbg.do`，并按 200 条/页自动拉全。
 
-### 4.2 教务系统-课表查询（自有接口 / 易读返回）
+### 4.2 教务系统 / 课表查询
 
 `POST /api/v1/lljw/schedule`（JSON 请求体）
 
@@ -309,21 +314,21 @@ curl -X POST "http://127.0.0.1:10381/api/v1/lljw/schedule" \
 
 > 网关内部自动调用官方课表接口，按 `ps/pe` 节次归类、按日期过滤。
 
-### 4.3 学生查寝-签到地点
+### 4.3 智慧学工 / 智能查寝 / 签到地点
 
 ```bash
 # 默认：全部地点
 curl -H "X-API-Key: <你的 API Key>" \
-  http://127.0.0.1:10381/api/v1/dorm/checkin-locations
+  http://127.0.0.1:10381/api/v1/xsfw/dorm-checkin/locations
 
 # 只看自己宿舍楼对应的地点
 curl -H "X-API-Key: <你的 API Key>" \
-  "http://127.0.0.1:10381/api/v1/dorm/checkin-locations?mine=true"
+  "http://127.0.0.1:10381/api/v1/xsfw/dorm-checkin/locations?mine=true"
 ```
 
 返回签到地点：`name`、`latitude`、`longitude`、`radius`；`mine=true` 时额外返回 `mine`、`building`，且 `locations` 只包含自己宿舍楼对应项。
 
-### 4.4 学生查寝-定位签到
+### 4.4 智慧学工 / 智能查寝 / 定位签到
 
 调用方传经纬度（默认自动识别坐标系），服务端先转换到百度 BD09，再完成学生查寝角色切换、状态查询、资格判断、最近围栏距离校验和签到提交。
 
@@ -331,17 +336,51 @@ curl -H "X-API-Key: <你的 API Key>" \
 # 默认自动识别 WGS84/GCJ02/BD09
 curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json" \
   -d '{"latitude":34.610278,"longitude":112.409723}' \
-  http://127.0.0.1:10381/api/v1/dorm/location-checkin
+  http://127.0.0.1:10381/api/v1/xsfw/dorm-checkin/check-in
 
 # 如果已有 BD09 坐标，传 coordType=bd09
 curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json" \
   -d '{"latitude":34.615409,"longitude":112.422520,"coordType":"bd09"}' \
-  http://127.0.0.1:10381/api/v1/dorm/location-checkin
+  http://127.0.0.1:10381/api/v1/xsfw/dorm-checkin/check-in
 ```
 
 返回 `submitted`、命中的签到点/距离、资格检查结果和签到后状态；只允许当前账号自己宿舍楼对应的签到围栏，不符合考勤时间、名单、请假、归宿状态或围栏条件时不会提交。
 
-### 4.5 多用户与 API Key 规则
+### 4.5 智慧学工 / 签到助手 / 今日签到
+
+`POST /api/v1/xsfw/qdzs/today-signin`
+
+请求：
+
+```json
+{"rwbh": "5F5FB88605DBEAACE0638A6210AC2D19",
+ "latitude": 34.610278, "longitude": 112.409723,
+ "coordType": "auto"}
+```
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `rwbh` | string | 是 | 任务编号，来自签到助手页面 URL 的 `RWBH` |
+| `latitude` | number | 是 | 纬度 |
+| `longitude` | number | 是 | 经度 |
+| `coordType` | string | 否 | `auto`（默认）/ `wgs84` / `gcj02` / `bd09` |
+
+接口会先查询任务状态，再按任务规则判断并提交：
+
+- 任务是否结束；
+- 今天是否需要签到；
+- 是否在签到时间段；
+- 是否已签到；
+- 是否允许范围外签到；
+- 是否需要附加信息（当前暂不支持需要附加信息的任务）。
+
+```bash
+curl -X POST "http://127.0.0.1:10381/api/v1/xsfw/qdzs/today-signin" \
+  -H "X-API-Key: <你的 Key>" -H "Content-Type: application/json" \
+  -d '{"rwbh":"5F5FB88605DBEAACE0638A6210AC2D19","latitude":34.610278,"longitude":112.409723}'
+```
+
+### 4.6 多用户与 API Key 规则
 
 * 后台「👤 我的账号」可查看/复制/重新生成自己的 Key；**重新生成后旧 Key 立即失效**；
 * 不同 Key 对应不同用户的统一认证会话，互不影响；
@@ -361,7 +400,7 @@ curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json
 
 * 界面参考同款文档站风格：左侧固定目录 + 顶部栏 + 内容卡片（绿色主题，移动端为汉堡抽屉目录）；
 * 由 FastAPI 自动生成，新增接口后刷新页面自动出现；
-* 左侧按模块分组导航；每个接口包含参数表、curl 示例、响应示例；
+* 左侧按「智慧学工 / 智能查寝 / 签到助手」「教务系统」层级导航；每个接口包含参数表、curl 示例、响应示例；
 * **在线调试**：页面顶部填写自己的 API Key（只存 localStorage），修改参数后点「发送请求」；
 * 页面不包含任何密钥；标题取自后台「系统设置」里的系统名称。
 

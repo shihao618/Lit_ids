@@ -60,7 +60,7 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
                 "color": "#009688",
             }]}},
     },
-    ("GET", "/api/v1/dorm/checkin-locations"): {
+    ("GET", "/api/v1/xsfw/dorm-checkin/locations"): {
         "response": {"code": 0, "msg": "ok", "data": {
             "total": 31, "mine": False, "building": "",
             "locations": [{
@@ -71,7 +71,7 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
             }],
         }},
     },
-    ("POST", "/api/v1/dorm/location-checkin"): {
+    ("POST", "/api/v1/xsfw/dorm-checkin/check-in"): {
         "request": {"latitude": 34.610278, "longitude": 112.409723,
                     "coordType": "auto"},
         "response": {"code": 0, "msg": "ok", "data": {
@@ -101,7 +101,7 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
                       "checkinTime": "11/01 23:20"},
         }},
     },
-    ("POST", "/api/v1/dorm/check-records"): {
+    ("POST", "/api/v1/xsfw/dorm-checkin/records"): {
         "request": {"classCode": "B260714",
                     "checkStatus": "not_returned",
                     "checkStatusType": "unreachable"},
@@ -124,9 +124,36 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
                 "checkStatusTypeLabel": "正常归寝",
             }]}},
     },
+    ("POST", "/api/v1/xsfw/qdzs/today-signin"): {
+        "request": {"rwbh": "5F5FB88605DBEAACE0638A6210AC2D19",
+                    "latitude": 34.610278, "longitude": 112.409723,
+                    "coordType": "auto"},
+        "response": {"code": 0, "msg": "ok", "data": {
+            "task": {"rwbh": "5F5FB88605DBEAACE0638A6210AC2D19",
+                     "name": "1106-1108全校定位签到",
+                     "method": "手机定位签到", "period": "循环签到",
+                     "dateStart": "2026-11-06", "dateEnd": "2026-11-08",
+                     "timeStart": "19:40", "timeEnd": "23:00",
+                     "serverTime": "2026-11-08 19:41:00"},
+            "checks": {"taskEnded": False, "needToday": True, "inTime": True,
+                       "alreadySigned": False, "allowOutside": True,
+                       "inRange": False, "needAttachment": False},
+            "input": {"rwbh": "5F5FB88605DBEAACE0638A6210AC2D19",
+                      "latitude": 34.610278, "longitude": 112.409723,
+                      "coordType": "auto"},
+            "converted": {"latitude": 34.6154091, "longitude": 112.4225198,
+                          "coordType": "bd09"},
+            "location": {"name": "学校", "distance": 1200.0, "radius": 100.0,
+                         "inRange": False},
+            "submitted": True,
+            "result": {"prompt": "签到成功"},
+            "after": {"signed": True},
+        }},
+    },
+
 }
 
-TAG_ORDER = ["认证/会话", "智能查寝", "教务系统", "元信息"]
+TAG_ORDER = ["认证/会话", "智慧学工", "智能查寝", "签到助手", "教务系统", "元信息"]
 
 # ============================================================ OpenAPI 辅助
 def _resolve_ref(spec: dict, ref: str) -> dict:
@@ -254,12 +281,27 @@ def _body_param_rows(op: dict, spec: dict) -> list[dict]:
     return rows
 
 
-#: 前台 API 文档只展示的业务接口（顺序即侧栏菜单顺序）
-DOC_MENU = [
-    ("智能查寝", "POST", "/api/v1/dorm/check-records"),
-    ("签到地点", "GET", "/api/v1/dorm/checkin-locations"),
-    ("定位签到", "POST", "/api/v1/dorm/location-checkin"),
-    ("课表查询", "POST", "/api/v1/lljw/schedule"),
+#: 前台 API 文档层级（顶层分类 -> 二级分类 -> 接口）
+DOC_SECTIONS = [
+    {
+        "title": "智慧学工",
+        "groups": [
+            {"title": "智能查寝", "items": [
+                ("查寝记录", "POST", "/api/v1/xsfw/dorm-checkin/records"),
+                ("签到地点", "GET", "/api/v1/xsfw/dorm-checkin/locations"),
+                ("定位签到", "POST", "/api/v1/xsfw/dorm-checkin/check-in"),
+            ]},
+            {"title": "签到助手", "items": [
+                ("今日签到", "POST", "/api/v1/xsfw/qdzs/today-signin"),
+            ]},
+        ],
+    },
+    {
+        "title": "教务系统",
+        "items": [
+            ("课表查询", "POST", "/api/v1/lljw/schedule"),
+        ],
+    },
 ]
 
 
@@ -435,33 +477,51 @@ def _render_html(app: Any, request: Request) -> str:
     all_groups = _build_endpoints(app)
     by_key = {(ep["method"], ep["path"]): ep
               for group in all_groups for ep in group["endpoints"]}
-    groups: list[dict] = []
-    for label, method, path in DOC_MENU:
-        ep = by_key.get((method, path))
-        if ep:
-            groups.append({"tag": label, "endpoints": [ep]})
     endpoints_js: list[dict] = []
     cards: list[str] = []
     nav: list[str] = []
     idx = 0
-    for group in groups:
-        group_anchor = "g-%d" % idx
-        nav.append(f'<a class="doc-nav-link" href="#{group_anchor}">{_h(group["tag"])}</a>')
-        cards.append(f'<section class="doc-section" id="{group_anchor}">'
-                     f'<h2 class="doc-heading">{_h(group["tag"])}</h2>')
-        for ep in group["endpoints"]:
-            cards.append(_render_endpoint(ep, idx, base))
-            endpoints_js.append({
-                "id": idx,
-                "method": ep["method"],
-                "path": ep["path"],
-                "body": ep["request"] is not None,
-                "query": [{"name": p["name"],
-                           # 描述里含"空字符串"的参数，允许在线调试时显式传空值（如 cqzt=）
-                           "send_empty": "空字符串" in (p["description"] or "")}
-                          for p in ep["params"] if p["in"] == "query"],
-            })
-            idx += 1
+
+    def add_endpoint(ep: dict, label: str) -> None:
+        nonlocal idx
+        cards.append(_render_endpoint(ep, idx, base))
+        endpoints_js.append({
+            "id": idx,
+            "method": ep["method"],
+            "path": ep["path"],
+            "body": ep["request"] is not None,
+            "query": [{"name": p["name"],
+                       # 描述里含"空字符串"的参数，允许在线调试时显式传空值（如 cqzt=）
+                       "send_empty": "空字符串" in (p["description"] or "")}
+                      for p in ep["params"] if p["in"] == "query"],
+        })
+        method = ep["method"].lower()
+        nav.append(
+            f'<a class="doc-nav-link" href="#ep-{idx}">'
+            f'<span class="method method-{method}">{_h(ep["method"])}</span>'
+            f'<span class="nav-label">{_h(label)}</span></a>')
+        idx += 1
+
+    for si, section in enumerate(DOC_SECTIONS):
+        section_anchor = "gs-%d" % si
+        nav.append(f'<p class="doc-nav-title">{_h(section["title"])}</p>')
+        cards.append(f'<section class="doc-section" id="{section_anchor}">'
+                     f'<h2 class="doc-heading">{_h(section["title"])}</h2>')
+        for gi, group in enumerate(section.get("groups") or []):
+            group_anchor = "gs-%d-%d" % (si, gi)
+            nav.append(f'<a class="doc-nav-group" href="#{group_anchor}">'
+                       f'{_h(group["title"])}</a>')
+            cards.append(f'<div class="doc-group" id="{group_anchor}">'
+                         f'<h3 class="doc-group-heading">{_h(group["title"])}</h3>')
+            for label, method, path in group["items"]:
+                ep = by_key.get((method, path))
+                if ep:
+                    add_endpoint(ep, label)
+            cards.append("</div>")
+        for label, method, path in section.get("items") or []:
+            ep = by_key.get((method, path))
+            if ep:
+                add_endpoint(ep, label)
         cards.append("</section>")
 
     endpoints_json = json.dumps(endpoints_js, ensure_ascii=False)
@@ -512,6 +572,11 @@ a{color:inherit;text-decoration:none}
 .doc-nav-link:hover{background:#f9fafb;color:var(--text)}
 .doc-nav-link .method{flex:none;min-width:42px;padding:1px 5px;font-size:10.5px}
 .doc-nav-link .path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.doc-nav-link .nav-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc-nav-group{display:block;padding:5px 10px;color:var(--muted);font-size:12px;font-weight:700;line-height:1.4;border-radius:6px}
+.doc-nav-group:hover{background:#f9fafb;color:var(--text2)}
+.doc-group{margin-top:6px}
+.doc-group-heading{font-size:16px;font-weight:700;margin:20px 0 2px;color:var(--text2)}
 .doc-sidebar-footer{margin-top:auto;padding-top:14px}
 .doc-sidebar-footer .doc-nav-link{font-size:13px;padding:8px 10px}
 .doc-sidebar-footer .doc-nav-link span{margin-right:2px}
@@ -658,7 +723,7 @@ DOCS_TMPL = """<!doctype html>
   <main id="main" class="docs-content">
     <article class="doc-content">
       <h1 class="doc-title">__APP_NAME__ · 接口文档</h1>
-      <p class="doc-lead">多用户统一认证接口网关：每个用户拥有自己的统一认证账号、独立 CAS 会话和独立 API Key。当前业务接口：智能查寝、签到地点、定位签到、课表查询。</p>
+      <p class="doc-lead">多用户统一认证接口网关：每个用户拥有自己的统一认证账号、独立 CAS 会话和独立 API Key。当前业务分类：智慧学工（智能查寝、签到助手）、教务系统（课表查询）。</p>
       <p class="doc-note">调用 <code class="code-inline">/api/v1/**</code> 接口需在请求头带 <code class="code-inline">X-API-Key</code>；页面本身不包含任何密钥，在线调试时只从本机浏览器读取。</p>
       <div class="doc-cards">
         <div class="doc-card"><h3 class="doc-card-title">统一响应格式</h3><p>成功：<code class="code-inline">{"code":0,"msg":"ok","data":...}</code></p><p>错误：<code class="code-inline">code</code> 为非 0，并带 <code class="code-inline">msg</code> / <code class="code-inline">hint</code>。</p></div>

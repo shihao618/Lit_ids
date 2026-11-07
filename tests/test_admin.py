@@ -119,9 +119,9 @@ def test_admin_api_key_regenerate():
         r = c.post("/admin/api/apikey/regenerate").json()
         assert r["ok"] is True and r["api_key"] and r["api_key"] != old_key
         # 旧 key 立即失效，新 key 可用
-        assert c.post("/api/v1/dorm/check-records", json={},
+        assert c.post("/api/v1/xsfw/dorm-checkin/records", json={},
                       headers={"X-API-Key": old_key}).status_code == 401
-        assert c.post("/api/v1/dorm/check-records", json={},
+        assert c.post("/api/v1/xsfw/dorm-checkin/records", json={},
                       headers={"X-API-Key": r["api_key"]}).status_code == 200
 
 
@@ -186,9 +186,9 @@ def test_user_configures_own_cas_and_admin_reset():
         # 普通用户的 key 也能调用接口（Fake 上游，仅验证鉴权隔离）
         with TestClient(app) as user_c:
             _login(user_c, "studentB", "newpass-123")
-            assert user_c.post("/api/v1/dorm/check-records", json={},
+            assert user_c.post("/api/v1/xsfw/dorm-checkin/records", json={},
                                headers={"X-API-Key": user["api_key"]}).status_code == 401
-            assert user_c.post("/api/v1/dorm/check-records", json={},
+            assert user_c.post("/api/v1/xsfw/dorm-checkin/records", json={},
                                headers={"X-API-Key": r["api_key"]}).status_code == 200
 
 

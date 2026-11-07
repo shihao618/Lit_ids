@@ -1,6 +1,6 @@
 """智能查寝（自有契约）接口路由.
 
-对外只暴露一个接口：POST /api/v1/dorm/check-records
+对外只暴露三个接口：POST /records、GET /locations、POST /check-in
 参数只有：班级、查寝状态、查寝状态类型；返回易读字段。
 内部由 XsfwSystem 调用官方 cqztbg.do。
 """
@@ -15,12 +15,11 @@ from ..deps import get_xsfw, require_api_key
 from ..schemas import CheckRecordsIn, LocationCheckinIn
 from ..systems import XsfwSystem
 
-router = APIRouter(prefix="/api/v1/dorm", tags=["智能查寝"],
+router = APIRouter(prefix="/api/v1/xsfw/dorm-checkin", tags=["智能查寝"],
                    dependencies=[Depends(require_api_key)])
 
 
-@router.get("/checkin-locations",
-            summary="智能查寝-获取可打卡地点")
+@router.get("/locations", summary="签到地点")
 def checkin_locations(
     mine: bool = Query(False, description="false=全部地点；true=只返回自己宿舍楼对应地点"),
     system: XsfwSystem = Depends(get_xsfw),
@@ -32,8 +31,7 @@ def checkin_locations(
     return system.checkin_locations(mine=mine)
 
 
-@router.post("/location-checkin",
-             summary="智能查寝-定位签到")
+@router.post("/check-in", summary="定位签到")
 def location_checkin(body: LocationCheckinIn,
                      system: XsfwSystem = Depends(get_xsfw)) -> dict[str, Any]:
     """用真实经纬度提交当前学生定位签到。
@@ -55,8 +53,7 @@ def location_checkin(body: LocationCheckinIn,
     return system.location_checkin(body.latitude, body.longitude, body.coordType)
 
 
-@router.post("/check-records",
-             summary="智能查寝-查寝记录（自有参数/易读返回）")
+@router.post("/records", summary="查寝记录")
 def check_records(body: CheckRecordsIn,
                   system: XsfwSystem = Depends(get_xsfw)) -> dict[str, Any]:
     """查询查寝记录。

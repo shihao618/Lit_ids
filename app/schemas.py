@@ -129,6 +129,16 @@ class LocationCheckinIn(BaseModel):
         "auto", description="输入坐标系：auto（自动识别，默认）/ wgs84 / gcj02 / bd09")
 
 
+class TodaySigninIn(BaseModel):
+    """签到助手-今日签到."""
+
+    rwbh: str = Field(..., min_length=8, description="任务编号 RWBH")
+    latitude: float = Field(..., ge=-90, le=90, description="纬度")
+    longitude: float = Field(..., ge=-180, le=180, description="经度")
+    coordType: Literal["auto", "wgs84", "gcj02", "bd09"] = Field(
+        "auto", description="输入坐标系：auto（自动识别，默认）/ wgs84 / gcj02 / bd09")
+
+
 class ScheduleIn(BaseModel):
     """教务系统-课表查询（自有参数）."""
 

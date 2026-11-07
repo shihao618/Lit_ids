@@ -8,7 +8,7 @@ import threading
 
 from .config import Settings
 from .session import SessionManager
-from .systems import LljwSystem, XsfwSystem
+from .systems import LljwSystem, QdzsSystem, XsfwSystem
 from .users import UserStore
 
 log = logging.getLogger(__name__)
@@ -26,6 +26,7 @@ class SessionRegistry:
         self._sessions: dict[str, SessionManager] = {}
         self._systems: dict[str, XsfwSystem] = {}
         self._lljw: dict[str, LljwSystem] = {}
+        self._qdzs: dict[str, QdzsSystem] = {}
 
     # ------------------------------------------------------------------ 路径
     def cookie_file(self, user_id: str) -> str:
@@ -65,9 +66,18 @@ class SessionRegistry:
                 self._lljw[user_id] = system
             return system
 
+    def qdzs(self, user_id: str) -> QdzsSystem:
+        """签到助手实例（复用该用户自己的 CAS 会话，独立维护 qdzs SSO）."""
+        with self._lock:
+            system = self._qdzs.get(user_id)
+            if system is None:
+                system = QdzsSystem(self.session(user_id))
+                self._qdzs[user_id] = system
+            return system
+
     def cached_users(self) -> list[str]:
         with self._lock:
-            return sorted(set(self._sessions) | set(self._systems) | set(self._lljw))
+            return sorted(set(self._sessions) | set(self._systems) | set(self._lljw) | set(self._qdzs))
 
     # ------------------------------------------------------------------ 重置
     def drop(self, user_id: str, clear_cookies: bool = False) -> None:
@@ -76,6 +86,7 @@ class SessionRegistry:
             self._sessions.pop(user_id, None)
             self._systems.pop(user_id, None)
             self._lljw.pop(user_id, None)
+            self._qdzs.pop(user_id, None)
         if clear_cookies:
             try:
                 os.remove(self.cookie_file(user_id))
@@ -88,3 +99,4 @@ class SessionRegistry:
             self._sessions.clear()
             self._systems.clear()
             self._lljw.clear()
+            self._qdzs.clear()

@@ -126,7 +126,7 @@ def create_app() -> FastAPI:
         title=DEFAULTS["app_name"],
         version=settings.version,
         description=(
-            "洛阳理工学院统一认证（CAS）多用户接口网关（智能查寝 + 教务系统）。\n\n"
+            "洛阳理工学院统一认证（CAS）多用户接口网关（智慧学工 + 教务系统）。\n\n"
             "每个网关用户拥有独立的统一认证账号、独立 CAS 会话和独立 API Key；\n"
             "后台：`/admin`（菜单式：概览/我的账号/统一认证/登录调试/接口自测/用户管理/系统设置/运行日志）。"
         ),
@@ -138,13 +138,14 @@ def create_app() -> FastAPI:
     )
     app.state.settings = settings
 
-    from .routers import admin, auth, docs, dorm, health, lljw
+    from .routers import admin, auth, docs, dorm, health, lljw, qdzs
 
     app.include_router(docs.router)      # 前台接口文档（GET /）
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(dorm.router)
     app.include_router(lljw.router)
+    app.include_router(qdzs.router)
     app.include_router(admin.router)
 
     # ------------------------------------------------------------ 异常处理
@@ -186,9 +187,10 @@ def create_app() -> FastAPI:
                         "GET  /admin                      后台菜单式调试界面（多用户）",
                 "GET  /api/v1/auth/status         当前 API Key 用户的会话状态",
                 "POST /api/v1/auth/login          登录当前 API Key 用户的统一认证",
-                "POST /api/v1/dorm/check-records",
-                "GET  /api/v1/dorm/checkin-locations",
-                "POST /api/v1/dorm/location-checkin",
+                "POST /api/v1/xsfw/dorm-checkin/records",
+                "GET  /api/v1/xsfw/dorm-checkin/locations",
+                "POST /api/v1/xsfw/dorm-checkin/check-in",
+                "POST /api/v1/xsfw/qdzs/today-signin",
                 "POST /api/v1/lljw/schedule",
             ],
         }

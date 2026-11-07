@@ -6,7 +6,7 @@
   * 路由层（routers/）：对外暴露的 HTTP API
 
 业务系统：智能查寝（xsfw WIS 平台 zncqapp）、教务系统（lljw）。
-业务接口：智能查寝-查寝记录（POST /api/v1/dorm/check-records，自有参数/易读返回）、
+业务接口：智能查寝-查寝记录（POST /api/v1/xsfw/dorm-checkin/records，自有参数/易读返回）、
          教务系统-课表查询（POST /api/v1/lljw/schedule，学期/周次自动、支持多时段查询）。
 """
 

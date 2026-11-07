@@ -9,7 +9,7 @@ from fastapi import Depends, Header, HTTPException, Request
 from .admin_auth import require_login
 from .registry import SessionRegistry
 from .session import SessionManager
-from .systems import LljwSystem, XsfwSystem
+from .systems import LljwSystem, QdzsSystem, XsfwSystem
 
 
 
@@ -66,3 +66,9 @@ def get_admin_lljw(request: Request, user: dict = Depends(require_login)) -> Llj
 def get_lljw(request: Request) -> LljwSystem:
     """当前 API Key 对应用户的教务系统实例."""
     return request.app.state.registry.lljw(get_api_user(request)["id"])
+
+
+def get_qdzs(request: Request) -> QdzsSystem:
+    """当前 API Key 用户的签到助手实例."""
+    user = get_api_user(request)
+    return request.app.state.registry.qdzs(user["id"])

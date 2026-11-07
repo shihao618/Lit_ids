@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/v1/lljw", tags=["教务系统"],
                    dependencies=[Depends(require_api_key)])
 
 
-@router.post("/schedule", summary="教务系统-课表查询（自有参数/易读返回）")
+@router.post("/schedule", summary="课表查询")
 def schedule(body: ScheduleIn,
              system: LljwSystem = Depends(get_lljw)) -> dict[str, Any]:
     """查询课表。

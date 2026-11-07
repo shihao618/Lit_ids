@@ -13,7 +13,7 @@ from app.main import app  # noqa: E402
 from app.systems.xsfw import XsfwSystem  # noqa: E402
 
 HEADERS = {"X-API-Key": "test-key"}
-CHECK_RECORDS = "/api/v1/dorm/check-records"
+CHECK_RECORDS = "/api/v1/xsfw/dorm-checkin/records"
 OLD_CQZTBG = "/api/v1/xsfw/sjkb/cqztbg"
 SCHEDULE = "/api/v1/lljw/schedule"
 OLD_CALENDAR = "/api/v1/lljw/xsgrkb/getCalendarWeekDatas"
