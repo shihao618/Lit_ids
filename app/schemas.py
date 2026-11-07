@@ -132,7 +132,6 @@ class LocationCheckinIn(BaseModel):
 class TodaySigninIn(BaseModel):
     """签到助手-今日签到."""
 
-    rwbh: str = Field("", description="任务编号 RWBH；不传=自动选今天可用任务")
     latitude: float = Field(..., ge=-90, le=90, description="纬度")
     longitude: float = Field(..., ge=-180, le=180, description="经度")
     coordType: Literal["auto", "wgs84", "gcj02", "bd09"] = Field(

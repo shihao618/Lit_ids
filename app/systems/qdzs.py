@@ -184,14 +184,12 @@ class QdzsSystem(BaseSystem):
                 continue
         return locations
 
-    def today_signin(self, rwbh: str, latitude: float, longitude: float,
+    def today_signin(self, latitude: float, longitude: float,
                      coord_type: str = "auto") -> dict:
         self.ensure_session()
-        rwbh = str(rwbh or "").strip()
+        rwbh = self._select_today_task()
         if not rwbh:
-            rwbh = self._select_today_task()
-            if not rwbh:
-                return {"code": 1, "msg": "没有可用的今日签到任务", "data": None}
+            return {"code": 1, "msg": "没有可用的今日签到任务", "data": None}
         task = self._info(rwbh)
         rw = task.get("RWXX") or {}
         qd = task.get("QDXX") or {}
@@ -257,7 +255,7 @@ class QdzsSystem(BaseSystem):
             "serverTime": rw.get("CURTIME") or "",
         }
         base = {"task": task_view, "checks": checks,
-                "input": {"rwbh": rwbh, "latitude": latitude, "longitude": longitude,
+                "input": {"latitude": latitude, "longitude": longitude,
                           "coordType": coord_type},
                 "converted": {"latitude": round(bd_lat, 7),
                               "longitude": round(bd_lng, 7), "coordType": "bd09"},

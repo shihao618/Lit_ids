@@ -353,19 +353,17 @@ curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json
 请求：
 
 ```json
-{"rwbh": "5F5FB88605DBEAACE0638A6210AC2D19",
- "latitude": 34.610278, "longitude": 112.409723,
+{"latitude": 34.610278, "longitude": 112.409723,
  "coordType": "auto"}
 ```
 
 | 参数 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `rwbh` | string | 否 | 任务编号；不传时自动从任务列表选择今天可用的任务 |
 | `latitude` | number | 是 | 纬度 |
 | `longitude` | number | 是 | 经度 |
 | `coordType` | string | 否 | `auto`（默认）/ `wgs84` / `gcj02` / `bd09` |
 
-接口会先查询任务状态，再按任务规则判断并提交：
+接口会自动查询今天的任务，再按任务规则判断并提交：
 
 - 任务是否结束；
 - 今天是否需要签到；
@@ -377,7 +375,7 @@ curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json
 ```bash
 curl -X POST "http://127.0.0.1:10381/api/v1/xsfw/qdzs/today-signin" \
   -H "X-API-Key: <你的 Key>" -H "Content-Type: application/json" \
-  -d '{"rwbh":"5F5FB88605DBEAACE0638A6210AC2D19","latitude":34.610278,"longitude":112.409723}'
+  -d '{"latitude":34.610278,"longitude":112.409723}'
 ```
 
 ### 4.6 多用户与 API Key 规则

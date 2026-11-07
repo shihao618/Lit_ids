@@ -19,7 +19,7 @@ def today_signin(body: TodaySigninIn,
                  system: QdzsSystem = Depends(get_qdzs)) -> dict[str, Any]:
     """查询并提交「签到助手」的今日定位签到。
 
-    * `rwbh` 可选；不传时从任务列表自动选择今天可用的任务；
+    * 不需要传任务编号，接口自动从任务列表选择今天可用的任务；
     * `latitude` / `longitude` 为当前位置；
     * `coordType` 默认 `auto`，自动识别 WGS84/GCJ02/BD09；
     * 接口内部会先查询任务状态，再按任务规则提交签到；
@@ -31,5 +31,5 @@ def today_signin(body: TodaySigninIn,
      "coordType": "auto"}
     ```
     """
-    return system.today_signin(body.rwbh, body.latitude, body.longitude,
+    return system.today_signin(body.latitude, body.longitude,
                                body.coordType)
