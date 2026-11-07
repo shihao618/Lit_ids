@@ -350,25 +350,35 @@ class QdzsSystem(BaseSystem):
             reason = "今天无需签到"
         elif checks["alreadySigned"]:
             reason = "今天已签到"
-        elif not checks["inTime"]:
-            reason = "当前时间不在签到时段内"
         elif checks["needAttachment"]:
             reason = "该任务需要填写附加信息，当前接口暂不支持"
+        elif not checks["inTime"]:
+            reason = "当前时间不在签到时段内"
         elif not in_range and not allow_outside:
             reason = "当前位置不在签到范围内"
         if reason:
             return {"code": 0, "msg": "ok", "data": {
                 **base, "submitted": False, "reason": reason}}
 
+        # 范围规则：
+        # 1) 在范围内：SFFWN=1，带 DDDM；
+        # 2) 范围外但任务允许范围外：SFFWN=0，不带 DDDM；
+        # 3) 范围外且不允许：上面已提前返回，不会走到这里。
+        if in_range:
+            sffwn = "1"
+            dddm = nearest.get("code") if nearest else ""
+        else:
+            sffwn = "0"
+            dddm = ""
         payload = {
             "RWBH": rwbh,
-            "SFFWN": "1" if in_range else "0",
+            "SFFWN": sffwn,
             "DDMC": ddmc,
             "QDJD": str(bd_lng),
             "QDWD": str(bd_lat),
         }
-        if in_range and nearest and nearest.get("code"):
-            payload["DDDM"] = nearest["code"]
+        if dddm:
+            payload["DDDM"] = dddm
         result = self._sign(payload)
         if str(result.get("code")) not in ("0", "200"):
             return {"code": 1, "msg": "签到失败: %s" % result.get("msg"),
