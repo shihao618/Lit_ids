@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import date
 import os
 import urllib.parse
 import urllib.request
@@ -255,144 +256,202 @@ class QdzsSystem(BaseSystem):
                 continue
         return {"code": 0, "msg": "ok", "data": items}
 
+    @staticmethod
+    def _today_str() -> str:
+        return date.today().isoformat()
+
+    @staticmethod
+    def _server_date(rw: dict) -> str:
+        curtime = str(rw.get("CURTIME") or "")
+        return curtime[:10] if len(curtime) >= 10 else ""
+
+    @staticmethod
+    def _is_today_record(qdxx: dict, today: str) -> bool:
+        if not qdxx:
+            return False
+        qdrq = str(qdxx.get("QDRQ") or "").strip()
+        qdsj = str(qdxx.get("QDSJ") or "").strip()
+        return qdrq == today or qdsj[:10] == today
+
+    @staticmethod
+    def _checkin_fields(qdxx: dict) -> dict:
+        out = {}
+        if qdxx.get("DDMC"):
+            out["location"] = str(qdxx.get("DDMC"))
+        if qdxx.get("QDSJ"):
+            out["time"] = str(qdxx.get("QDSJ"))
+        for key, value in (("longitude", qdxx.get("QDJD")),
+                           ("latitude", qdxx.get("QDWD"))):
+            try:
+                out[key] = float(value)
+            except (TypeError, ValueError):
+                pass
+        return out
+
+    def _today_tasks(self) -> list[dict]:
+        """合并今日待签到任务与任务列表，按 RWBH 去重并限制在今天."""
+        today = self._today_str()
+        merged: dict[str, dict] = {}
+        for loader in (self._tasks, self._all_tasks):
+            try:
+                items = loader()
+            except SystemError:
+                continue
+            for item in items:
+                rwbh = str(item.get("RWBH") or "").strip()
+                if not rwbh:
+                    continue
+                start = str(item.get("QDKSRQ") or "")
+                end = str(item.get("QDJSRQ") or "")
+                if start and start > today:
+                    continue
+                if end and end < today:
+                    continue
+                merged.setdefault(rwbh, item)
+        return list(merged.values())
+
+    def _detect_coords(self, latitude: float, longitude: float,
+                       coord_type: str, locations: list[dict]) -> tuple[float, float, str]:
+        kind = (coord_type or "auto").strip().lower()
+        if kind != "auto":
+            bd_lat, bd_lng = to_bd09(latitude, longitude, kind)
+            return bd_lat, bd_lng, kind
+        candidates = []
+        for candidate_kind in ("wgs84", "gcj02", "bd09"):
+            cand_lat, cand_lng = to_bd09(latitude, longitude, candidate_kind)
+            nearest = None
+            for item in locations:
+                distance = self._distance(cand_lat, cand_lng,
+                                          item["latitude"], item["longitude"])
+                if nearest is None or distance < nearest:
+                    nearest = distance
+            candidates.append((nearest if nearest is not None else 1e18,
+                               candidate_kind, cand_lat, cand_lng))
+        best = min(candidates, key=lambda item: item[0])
+        return best[2], best[3], best[1]
+
     def today_signin(self, latitude: float, longitude: float,
                      coord_type: str = "auto") -> dict:
+        """逐个任务查询、提交并回查今天的签到结果."""
         self.ensure_session()
-        rwbh = self._select_today_task()
-        if not rwbh:
-            return {"code": 1, "msg": "没有可用的今日签到任务", "data": None}
-        self._last_rwbh = rwbh
-        task = self._info(rwbh)
-        rw = task.get("RWXX") or {}
-        qd = task.get("QDXX") or {}
-        locations = self._location_list(task)
-        candidates = None
-        detected_type = (coord_type or "auto").strip().lower()
-        if detected_type == "auto":
-            candidates = []
-            for kind in ("wgs84", "gcj02", "bd09"):
-                try:
-                    cand_lat, cand_lng = to_bd09(latitude, longitude, kind)
-                except ValueError:
-                    continue
-                cand_near = None
-                for item in locations:
-                    distance = self._distance(cand_lat, cand_lng,
-                                              item["latitude"], item["longitude"])
-                    if cand_near is None or distance < cand_near["distance"]:
-                        cand_near = {**item, "distance": round(distance, 1)}
-                candidates.append({
-                    "coordType": kind,
-                    "converted": {"latitude": round(cand_lat, 7),
-                                  "longitude": round(cand_lng, 7),
-                                  "coordType": "bd09"},
-                    "distance": cand_near["distance"] if cand_near else None,
-                })
-            best = min(candidates, key=lambda item: (
-                item["distance"] if item["distance"] is not None else 1e18))
-            detected_type = best["coordType"]
-            bd_lat = best["converted"]["latitude"]
-            bd_lng = best["converted"]["longitude"]
-        else:
-            bd_lat, bd_lng = to_bd09(latitude, longitude, detected_type)
+        tasks = self._today_tasks()
+        if not tasks:
+            return {"code": 0, "msg": "ok", "data": {
+                "status": "今天无需打卡", "items": []}}
 
-        nearest = None
-        for item in locations:
-            distance = self._distance(bd_lat, bd_lng, item["latitude"], item["longitude"])
-            if nearest is None or distance < nearest["distance"]:
-                nearest = {**item, "distance": round(distance, 1)}
+        entries: list[dict] = []
+        all_locations: list[dict] = []
+        for task_item in tasks:
+            rwbh = str(task_item.get("RWBH") or "").strip()
+            task_name = str(task_item.get("RWMC") or "")
+            try:
+                info = self._info(rwbh)
+            except SystemError as exc:
+                entries.append({"rwbh": rwbh, "taskName": task_name,
+                                "task": None, "error": str(exc)})
+                continue
+            rw = info.get("RWXX") or {}
+            locs = self._location_list(info)
+            all_locations.extend(locs)
+            entries.append({"rwbh": rwbh,
+                            "taskName": rw.get("RWMC") or task_name,
+                            "task": info, "locations": locs,
+                            "error": ""})
 
-        allow_outside = str(rw.get("SFFWWQD") or "0") == "1"
-        in_range = bool(nearest and nearest["distance"] <= nearest["radius"])
-        if nearest:
-            nearest = {**nearest, "inRange": in_range}
-        # 官方 DDMC 规则：
-        # 范围内 = 命中的签到点名称；范围外 = 当前坐标反查地址
-        if in_range:
-            ddmc = nearest["name"] if nearest else "当前位置"
-        else:
-            ddmc = self._reverse_address(bd_lat, bd_lng)
+        bd_lat, bd_lng, _detected = self._detect_coords(
+            latitude, longitude, coord_type, all_locations)
+        reverse_cache = {"value": None}
+
+        def reverse_address() -> str:
+            if reverse_cache["value"] is None:
+                reverse_cache["value"] = self._reverse_address(bd_lat, bd_lng)
+            return reverse_cache["value"]
+
+        items: list[dict] = []
+        for entry in entries:
+            task_name = entry["taskName"] or "未命名任务"
+            if entry["error"] or entry["task"] is None:
+                items.append({"taskName": task_name, "status": "提交失败"})
+                continue
+            task = entry["task"]
+            rw = task.get("RWXX") or {}
+            qdxx = task.get("QDXX") or {}
+            today = self._server_date(rw) or self._today_str()
+            base_item = {"taskName": task_name}
+            if str(rw.get("SFJS") or "0") == "1":
+                items.append({**base_item, "status": "任务已结束"})
+                continue
+            if str(rw.get("JRSFXYQD") or "0") != "1":
+                items.append({**base_item, "status": "今天无需打卡"})
+                continue
+            if str(rw.get("SFQD") or "0") == "1" and self._is_today_record(qdxx, today):
+                items.append({**base_item, "status": "已经打过卡了",
+                              **self._checkin_fields(qdxx)})
+                continue
+            if str(rw.get("FJXX") or "0") == "1":
+                items.append({**base_item, "status": "提交失败"})
+                continue
+            if str(rw.get("SFZSJDN") or "0") != "1":
+                items.append({**base_item, "status": "不在签到时间"})
+                continue
+
+            locations = entry.get("locations") or []
+            nearest = None
+            for item in locations:
+                distance = self._distance(bd_lat, bd_lng,
+                                          item["latitude"], item["longitude"])
+                if nearest is None or distance < nearest["distance"]:
+                    nearest = {**item, "distance": round(distance, 1)}
+            allow_outside = str(rw.get("SFFWWQD") or "0") == "1"
+            in_range = bool(nearest and nearest["distance"] <= nearest["radius"])
+            if not in_range and not allow_outside:
+                items.append({**base_item, "status": "不在签到范围"})
+                continue
+
+            ddmc = (nearest["name"] if in_range else reverse_address())
             if not ddmc:
                 ddmc = nearest["name"] if nearest else "当前位置"
-        checks = {
-            "taskEnded": str(rw.get("SFJS") or "0") == "1",
-            "needToday": str(rw.get("JRSFXYQD") or "0") == "1",
-            "inTime": str(rw.get("SFZSJDN") or "0") == "1",
-            "alreadySigned": str(rw.get("SFQD") or "0") == "1",
-            "allowOutside": allow_outside,
-            "inRange": in_range,
-            "needAttachment": str(rw.get("FJXX") or "0") == "1",
-        }
-        task_view = {
-            "rwbh": rw.get("RWBH") or rwbh,
-            "name": rw.get("RWMC") or "",
-            "method": rw.get("QDFS_DISPLAY") or "",
-            "period": rw.get("QDPL_DISPLAY") or "",
-            "dateStart": rw.get("QDKSRQ") or "",
-            "dateEnd": rw.get("QDJSRQ") or "",
-            "timeStart": rw.get("QDKSSJ") or "",
-            "timeEnd": rw.get("QDJSSJ") or "",
-            "serverTime": rw.get("CURTIME") or "",
-        }
-        base = {"task": task_view, "checks": checks,
-                "input": {"latitude": latitude, "longitude": longitude,
-                          "coordType": coord_type},
-                "converted": {"latitude": round(bd_lat, 7),
-                              "longitude": round(bd_lng, 7), "coordType": "bd09"},
-                "detectedCoordType": detected_type,
-                "address": ddmc,
-                "location": nearest,
-                # 官方原始字段，便于调用方直接使用
-                "DDLIST": task.get("DDLIST") or [],
-                "QDXX": task.get("QDXX") or {}}
-        if candidates is not None:
-            base["candidates"] = candidates
-        reason = ""
-        if checks["taskEnded"]:
-            reason = "任务已结束"
-        elif not checks["needToday"]:
-            reason = "今天无需签到"
-        elif checks["alreadySigned"]:
-            reason = "今天已签到"
-        elif checks["needAttachment"]:
-            reason = "该任务需要填写附加信息，当前接口暂不支持"
-        elif not checks["inTime"]:
-            reason = "当前时间不在签到时段内"
-        elif not in_range and not allow_outside:
-            reason = "当前位置不在签到范围内"
-        if reason:
-            return {"code": 0, "msg": "ok", "data": {
-                **base, "submitted": False, "reason": reason}}
+            payload = {
+                "RWBH": entry["rwbh"],
+                "SFFWN": "1" if in_range else "0",
+                "DDMC": ddmc,
+                "QDJD": str(bd_lng),
+                "QDWD": str(bd_lat),
+            }
+            if in_range and nearest and nearest.get("code"):
+                payload["DDDM"] = nearest["code"]
+            try:
+                result = self._sign(payload)
+            except SystemError:
+                items.append({**base_item, "status": "提交失败"})
+                continue
+            if str(result.get("code")) not in ("0", "200"):
+                items.append({**base_item, "status": "提交失败"})
+                continue
+            try:
+                latest = self._info(entry["rwbh"])
+            except SystemError:
+                items.append({**base_item, "status": "提交失败"})
+                continue
+            latest_rw = latest.get("RWXX") or {}
+            latest_qdxx = latest.get("QDXX") or {}
+            latest_today = self._server_date(latest_rw) or self._today_str()
+            if (str(latest_rw.get("SFQD") or "0") == "1"
+                    and self._is_today_record(latest_qdxx, latest_today)):
+                items.append({**base_item, "status": "打卡成功",
+                              **self._checkin_fields(latest_qdxx)})
+            else:
+                items.append({**base_item, "status": "提交失败"})
 
-        # 范围规则：
-        # 1) 在范围内：SFFWN=1，带 DDDM；
-        # 2) 范围外但任务允许范围外：SFFWN=0，不带 DDDM；
-        # 3) 范围外且不允许：上面已提前返回，不会走到这里。
-        if in_range:
-            sffwn = "1"
-            dddm = nearest.get("code") if nearest else ""
+        if not items or all(item["status"] == "今天无需打卡" for item in items):
+            return {"code": 0, "msg": "ok", "data": {
+                "status": "今天无需打卡", "items": []}}
+        statuses = [item["status"] for item in items]
+        if any(s == "打卡成功" for s in statuses):
+            overall = "打卡成功" if all(s == "打卡成功" for s in statuses) else "部分成功"
+        elif any(s == "已经打过卡了" for s in statuses):
+            overall = ("已经打过卡了" if all(s == "已经打过卡了" for s in statuses)
+                       else "部分成功")
         else:
-            sffwn = "0"
-            dddm = ""
-        payload = {
-            "RWBH": rwbh,
-            "SFFWN": sffwn,
-            "DDMC": ddmc,
-            "QDJD": str(bd_lng),
-            "QDWD": str(bd_lat),
-        }
-        if dddm:
-            payload["DDDM"] = dddm
-        result = self._sign(payload)
-        if str(result.get("code")) not in ("0", "200"):
-            return {"code": 1, "msg": "签到失败: %s" % result.get("msg"),
-                    "data": {**base, "submitted": False, "upstream": result}}
-        latest = self._info(rwbh)
-        return {"code": 0, "msg": "ok", "data": {
-            **base,
-            "submitted": True,
-            "result": result.get("data") or {},
-            "after": {"signed": str((latest.get("RWXX") or {}).get("SFQD") or "0") == "1",
-                      "task": latest.get("RWXX") or {},
-                      "record": latest.get("QDXX") or {}},
-        }}
+            overall = statuses[0]
+        return {"code": 0, "msg": "ok", "data": {"status": overall, "items": items}}

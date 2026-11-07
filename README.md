@@ -350,7 +350,7 @@ curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json
 
 `GET /api/v1/xsfw/qdzs/locations`
 
-自动选择今天的签到任务，返回该任务允许的签到地点；同时保留官方原始 `DDLIST` / `QDXX` 字段：
+自动选择今天的签到任务，返回该任务允许的签到地点：
 
 ```bash
 curl -H "X-API-Key: <你的 Key>" \
@@ -393,6 +393,24 @@ curl -H "X-API-Key: <你的 Key>" \
 - 是否已签到；
 - 是否允许范围外签到；
 - 是否需要附加信息（当前暂不支持需要附加信息的任务）。
+
+返回示例：
+
+```json
+{"code":0,"msg":"ok","data":{
+  "status":"已经打过卡了",
+  "items":[{
+    "taskName":"1106-1108全校定位签到",
+    "status":"已经打过卡了",
+    "location":"学校",
+    "time":"2026-11-07 19:40:05",
+    "longitude":112.4225198,
+    "latitude":34.6154091
+  }]
+}}
+```
+
+无今日签到记录时，只返回 `taskName` 和 `status`，不返回地点/时间/经纬度；无任务时返回 `今天无需打卡`。
 
 ```bash
 curl -X POST "http://127.0.0.1:10381/api/v1/xsfw/qdzs/today-signin" \
