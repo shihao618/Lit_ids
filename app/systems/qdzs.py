@@ -246,7 +246,7 @@ class QdzsSystem(BaseSystem):
             try:
                 items.append({
                     # 信息使用官方字段，命名使用网关自有命名
-                    "name": str(item.get("DDMC") or ""),
+                    "locationName": str(item.get("DDMC") or ""),
                     "longitude": float(item.get("JD")),
                     "latitude": float(item.get("WD")),
                 })
