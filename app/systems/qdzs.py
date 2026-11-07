@@ -21,6 +21,7 @@ class QdzsSystem(BaseSystem):
     INDEX = HOST + "/xsfw/sys/swmqdzsapp/*default/index.do"
     APPID = "6390414391613368"
     APPNAME = "swmqdzsapp"
+    TASKS_PATH = "/xsfw/sys/swmqdzsapp/MobileJrqdController/getJrqdList.do"
     INFO_PATH = "/xsfw/sys/swmqdzsapp/MobileJrqdController/getTodaySignInInfo.do"
     SIGN_PATH = "/xsfw/sys/swmqdzsapp/MobileJrqdController/doSignIn.do"
     ROLES_PATH = "/xsfw/sys/swpubapp/NewMobileAPIController/getUserRoles.do"
@@ -98,6 +99,55 @@ class QdzsSystem(BaseSystem):
                 log.info("签到助手角色预置跳过: %s", exc)
             self._sso_ready = True
 
+    def _tasks(self) -> list[dict]:
+        _, data = self._post_data(self.TASKS_PATH, {
+            "querySetting": "[]", "pageNumber": 1, "pageSize": 10})
+        if str(data.get("code")) not in ("0", "200"):
+            raise SystemError("查询今日签到任务列表失败: %s" % data.get("msg"),
+                              code=data.get("code"), http_status=502)
+        return data.get("data") or []
+
+    def _select_today_task(self) -> str:
+        """不传 RWBH 时，从任务列表中选择今天可用的任务."""
+        from datetime import date
+        today = date.today().isoformat()
+        tasks = self._tasks()
+        candidates = []
+        for item in tasks:
+            start = str(item.get("QDKSRQ") or "")
+            end = str(item.get("QDJSRQ") or "")
+            if start and start > today:
+                continue
+            if end and end < today:
+                continue
+            candidates.append(item)
+        for item in candidates:
+            rwbh = str(item.get("RWBH") or "")
+            if not rwbh:
+                continue
+            try:
+                info = self._info(rwbh)
+            except SystemError:
+                continue
+            rw = info.get("RWXX") or {}
+            if str(rw.get("JRSFXYQD") or "0") == "1" and str(rw.get("SFJS") or "0") != "1":
+                return rwbh
+        if candidates:
+            return str(candidates[0].get("RWBH") or "")
+        if tasks:
+            return str(tasks[0].get("RWBH") or "")
+        return ""
+
+    @staticmethod
+    def _distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+        import math
+        r = 6371000.0
+        p1, p2 = math.radians(lat1), math.radians(lat2)
+        dp = p2 - p1
+        dl = math.radians(lng2 - lng1)
+        h = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+        return 2 * r * math.asin(math.sqrt(h))
+
     def _info(self, rwbh: str) -> dict:
         status, data = self._post_data(self.INFO_PATH, {"RWBH": rwbh})
         if status == 403:
@@ -134,19 +184,14 @@ class QdzsSystem(BaseSystem):
                 continue
         return locations
 
-    @staticmethod
-    def _distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
-        import math
-        r = 6371000.0
-        p1, p2 = math.radians(lat1), math.radians(lat2)
-        dp = p2 - p1
-        dl = math.radians(lng2 - lng1)
-        h = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-        return 2 * r * math.asin(math.sqrt(h))
-
     def today_signin(self, rwbh: str, latitude: float, longitude: float,
                      coord_type: str = "auto") -> dict:
         self.ensure_session()
+        rwbh = str(rwbh or "").strip()
+        if not rwbh:
+            rwbh = self._select_today_task()
+            if not rwbh:
+                return {"code": 1, "msg": "没有可用的今日签到任务", "data": None}
         task = self._info(rwbh)
         rw = task.get("RWXX") or {}
         qd = task.get("QDXX") or {}
@@ -189,6 +234,8 @@ class QdzsSystem(BaseSystem):
 
         allow_outside = str(rw.get("SFFWWQD") or "0") == "1"
         in_range = bool(nearest and nearest["distance"] <= nearest["radius"])
+        if nearest:
+            nearest = {**nearest, "inRange": in_range}
         checks = {
             "taskEnded": str(rw.get("SFJS") or "0") == "1",
             "needToday": str(rw.get("JRSFXYQD") or "0") == "1",

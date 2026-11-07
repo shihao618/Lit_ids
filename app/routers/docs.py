@@ -125,8 +125,7 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
             }]}},
     },
     ("POST", "/api/v1/xsfw/qdzs/today-signin"): {
-        "request": {"rwbh": "5F5FB88605DBEAACE0638A6210AC2D19",
-                    "latitude": 34.610278, "longitude": 112.409723,
+        "request": {"latitude": 34.610278, "longitude": 112.409723,
                     "coordType": "auto"},
         "response": {"code": 0, "msg": "ok", "data": {
             "task": {"rwbh": "5F5FB88605DBEAACE0638A6210AC2D19",

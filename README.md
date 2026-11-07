@@ -360,7 +360,7 @@ curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json
 
 | 参数 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `rwbh` | string | 是 | 任务编号，来自签到助手页面 URL 的 `RWBH` |
+| `rwbh` | string | 否 | 任务编号；不传时自动从任务列表选择今天可用的任务 |
 | `latitude` | number | 是 | 纬度 |
 | `longitude` | number | 是 | 经度 |
 | `coordType` | string | 否 | `auto`（默认）/ `wgs84` / `gcj02` / `bd09` |
