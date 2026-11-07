@@ -58,6 +58,11 @@ def get_xsfw(request: Request) -> XsfwSystem:
     return request.app.state.registry.system(user["id"])
 
 
+def get_admin_qdzs(request: Request, user: dict = Depends(require_login)) -> QdzsSystem:
+    """后台「接口自测」：签到助手（当前登录管理员自己的会话）."""
+    return request.app.state.registry.qdzs(user["id"])
+
+
 def get_admin_lljw(request: Request, user: dict = Depends(require_login)) -> LljwSystem:
     """后台「接口自测」：教务系统（当前登录管理员自己的会话）."""
     return request.app.state.registry.lljw(user["id"])

@@ -41,12 +41,13 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from ..admin_auth import (COOKIE_NAME, DEFAULT_TTL, IMPERSONATOR_COOKIE,
                           get_cookie_user, make_token, parse_token, require_admin_user, require_login)
-from ..deps import get_admin_lljw, get_admin_xsfw, get_registry
+from ..deps import get_admin_lljw, get_admin_qdzs, get_admin_xsfw, get_registry
 from ..logbuf import log_buffer
 from ..restart import schedule_restart
 from ..schemas import (
     AdminCasIn, AdminLoginIn, AdminMfaIn, AdminPasswordIn, AdminRoleIn,
-    CasSettingsIn, LocationCheckinIn, SelfPasswordIn, SystemSettingsIn, UserCreateIn,
+    CasSettingsIn, LocationCheckinIn, SelfPasswordIn, SystemSettingsIn,
+    TodaySigninIn, UserCreateIn,
 )
 from ..session import SessionError
 from ..settings_store import DEFAULTS, EDITABLE, apply_log_level
@@ -317,6 +318,24 @@ def test_location_checkin(body: LocationCheckinIn,
                           system=Depends(get_admin_xsfw)) -> dict[str, Any]:
     try:
         return {"ok": True, "data": system.location_checkin(
+            body.latitude, body.longitude, body.coordType)}
+    except (SystemError, SessionError) as e:
+        return _err(e)
+
+
+@api.get("/test/qdzs-locations", summary="自测：签到助手-签到地点")
+def test_qdzs_locations(system=Depends(get_admin_qdzs)) -> dict[str, Any]:
+    try:
+        return {"ok": True, "data": system.checkin_locations()}
+    except (SystemError, SessionError) as e:
+        return _err(e)
+
+
+@api.post("/test/qdzs-today-signin", summary="自测：签到助手-今日签到")
+def test_qdzs_today_signin(body: TodaySigninIn,
+                           system=Depends(get_admin_qdzs)) -> dict[str, Any]:
+    try:
+        return {"ok": True, "data": system.today_signin(
             body.latitude, body.longitude, body.coordType)}
     except (SystemError, SessionError) as e:
         return _err(e)
@@ -877,6 +896,25 @@ _DASHBOARD_TMPL = """<!doctype html>
         <pre id="check-records-out">（接口自测结果）</pre>
       </div>
       <div class="card">
+        <h2>接口自测（签到助手 · 使用我自己的会话）</h2>
+        <div class="row">
+          <span>经纬度：</span>
+          <input id="test-qdzs-latitude" value="34.610278" placeholder="latitude 纬度" style="width:170px">
+          <input id="test-qdzs-longitude" value="112.409723" placeholder="longitude 经度" style="width:170px">
+          <select id="test-qdzs-coord-type" style="width:120px" title="输入坐标系">
+            <option value="auto" selected>自动识别</option>
+            <option value="wgs84">WGS84</option>
+            <option value="gcj02">GCJ02</option>
+            <option value="bd09">BD09</option>
+          </select>
+          <button type="button" onclick="testQdzsLocations()">获取签到地点</button>
+          <button type="button" class="gray" onclick="testQdzsTodaySignin()">今日签到</button>
+        </div>
+        <div class="note">签到助手会自动发现今日任务；按任务状态和范围规则提交，并回查今日签到记录。</div>
+        <pre id="qdzs-locations-out">（签到地点）</pre>
+        <pre id="qdzs-signin-out">（今日签到结果）</pre>
+      </div>
+      <div class="card">
         <h2>接口自测（教务课表 · 使用我自己的会话）</h2>
         <div class="row">
           <span>参数：</span>
@@ -1216,6 +1254,21 @@ async function testCheckinLocations(){
   const mine=$('checkin-locations-mine').checked;
   const r=await api('/admin/api/test/checkin-locations'+(mine?'?mine=true':''));
   $('checkin-locations-out').textContent=JSON.stringify(r,null,2);
+}
+async function testQdzsLocations(){
+  const r=await api('/admin/api/test/qdzs-locations');
+  $('qdzs-locations-out').textContent=JSON.stringify(r,null,2);
+}
+async function testQdzsTodaySignin(){
+  const body={latitude:Number($('test-qdzs-latitude').value),
+              longitude:Number($('test-qdzs-longitude').value),
+              coordType:$('test-qdzs-coord-type').value};
+  if(!Number.isFinite(body.latitude)||!Number.isFinite(body.longitude)){
+    $('qdzs-signin-out').textContent='请输入合法的经纬度';
+    return;
+  }
+  const r=await post('/admin/api/test/qdzs-today-signin',body);
+  $('qdzs-signin-out').textContent=JSON.stringify(r,null,2);
 }
 async function createUser(){
   const body={username:$('new-username').value.trim(),password:$('new-password').value,role:$('new-role').value,
