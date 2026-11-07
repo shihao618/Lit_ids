@@ -77,22 +77,23 @@ class QdzsSystem(BaseSystem):
                 "User-Agent": L.UA, "Accept": "text/html,application/xhtml+xml,*/*"})
             self.session.client.get(self.INDEX, headers={
                 "User-Agent": L.UA, "Accept": "text/html,application/xhtml+xml,*/*"})
-            # 尝试设置应用角色；部分账号可能由移动端预置角色，失败也不立刻阻断，
-            # 具体数据接口会给出 403/业务错误。
+            # getSelRoleConfig / setAppRole 使用 data=JSON 表单字段。
             try:
-                status, data = self._post_form(
-                    self.ROLES_PATH, {"APPID": self.APPID, "APPNAME": self.APPNAME})
-                roles = data.get("data") or []
-                role = next((r for r in roles if str(r.get("ROLENAME") or "") in
-                             ("学生", "学生组", "签到学生")), None)
-                if role is None and roles:
-                    role = roles[0]
-                if role:
-                    _, set_data = self._post_form(self.ROLE_SET_PATH, {
-                        "APPID": self.APPID, "APPNAME": self.APPNAME,
-                        "ROLEID": role.get("ROLEID")})
+                _, sel = self._post_data(
+                    "/xsfw/sys/swpubapp/MobileCommon/getSelRoleConfig.do",
+                    {"APPID": self.APPID, "APPNAME": self.APPNAME})
+                sel_data = sel.get("data") or {}
+                role_id = sel_data.get("DEFAULT_ROLEID") or ""
+                if str(sel_data.get("IS_NEED_SELECTROLE") or "") == "1":
+                    roles = sel_data.get("ROLELIST") or []
+                    role_id = next((r.get("id") for r in roles if r.get("id")), role_id)
+                if role_id:
+                    _, set_data = self._post_data(
+                        "/xsfw/sys/swpubapp/MobileCommon/setAppRole.do",
+                        {"APPID": self.APPID, "APPNAME": self.APPNAME,
+                         "ROLEID": role_id})
                     if str(set_data.get("code")) in ("0", "200"):
-                        self._role = role
+                        self._role = {"ROLEID": role_id}
             except Exception as exc:  # noqa: BLE001
                 log.info("签到助手角色预置跳过: %s", exc)
             self._sso_ready = True
@@ -150,7 +151,35 @@ class QdzsSystem(BaseSystem):
         rw = task.get("RWXX") or {}
         qd = task.get("QDXX") or {}
         locations = self._location_list(task)
-        bd_lat, bd_lng = to_bd09(latitude, longitude, coord_type)
+        candidates = None
+        detected_type = (coord_type or "auto").strip().lower()
+        if detected_type == "auto":
+            candidates = []
+            for kind in ("wgs84", "gcj02", "bd09"):
+                try:
+                    cand_lat, cand_lng = to_bd09(latitude, longitude, kind)
+                except ValueError:
+                    continue
+                cand_near = None
+                for item in locations:
+                    distance = self._distance(cand_lat, cand_lng,
+                                              item["latitude"], item["longitude"])
+                    if cand_near is None or distance < cand_near["distance"]:
+                        cand_near = {**item, "distance": round(distance, 1)}
+                candidates.append({
+                    "coordType": kind,
+                    "converted": {"latitude": round(cand_lat, 7),
+                                  "longitude": round(cand_lng, 7),
+                                  "coordType": "bd09"},
+                    "distance": cand_near["distance"] if cand_near else None,
+                })
+            best = min(candidates, key=lambda item: (
+                item["distance"] if item["distance"] is not None else 1e18))
+            detected_type = best["coordType"]
+            bd_lat = best["converted"]["latitude"]
+            bd_lng = best["converted"]["longitude"]
+        else:
+            bd_lat, bd_lng = to_bd09(latitude, longitude, detected_type)
 
         nearest = None
         for item in locations:
@@ -185,7 +214,10 @@ class QdzsSystem(BaseSystem):
                           "coordType": coord_type},
                 "converted": {"latitude": round(bd_lat, 7),
                               "longitude": round(bd_lng, 7), "coordType": "bd09"},
+                "detectedCoordType": detected_type,
                 "location": nearest}
+        if candidates is not None:
+            base["candidates"] = candidates
         reason = ""
         if checks["taskEnded"]:
             reason = "任务已结束"
