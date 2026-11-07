@@ -127,7 +127,7 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
     ("GET", "/api/v1/xsfw/qdzs/locations"): {
         "response": {"code": 0, "msg": "ok", "data": [
             {"name": "学校", "longitude": 112.441906,
-             "latitude": 34.612396, "checkin": {}},
+             "latitude": 34.612396},
         ]},
     },
     ("POST", "/api/v1/xsfw/qdzs/today-signin"): {

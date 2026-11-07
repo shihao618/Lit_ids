@@ -241,7 +241,6 @@ class QdzsSystem(BaseSystem):
             return {"code": 1, "msg": "没有可用的今日签到任务", "data": None}
         self._last_rwbh = rwbh
         task = self._info(rwbh)
-        qdxx = task.get("QDXX") or {}
         items = []
         for item in task.get("DDLIST") or []:
             try:
@@ -250,7 +249,6 @@ class QdzsSystem(BaseSystem):
                     "name": str(item.get("DDMC") or ""),
                     "longitude": float(item.get("JD")),
                     "latitude": float(item.get("WD")),
-                    "checkin": qdxx,
                 })
             except (TypeError, ValueError):
                 continue

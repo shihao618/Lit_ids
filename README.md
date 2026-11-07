@@ -361,12 +361,11 @@ curl -H "X-API-Key: <你的 Key>" \
 
 ```json
 {"code":0,"msg":"ok","data":[
-  {"name":"学校","longitude":112.441906,"latitude":34.612396,
-   "checkin":{}}
+  {"name":"学校","longitude":112.441906,"latitude":34.612396}
 ]}
 ```
 
-`name` 来自官方 `DDMC`，`longitude` 来自 `JD`，`latitude` 来自 `WD`，`checkin` 来自官方 `QDXX`。
+`name` 来自官方 `DDMC`，`longitude` 来自 `JD`，`latitude` 来自 `WD`。
 
 ### 4.6 智慧学工 / 签到助手 / 今日签到
 
