@@ -256,6 +256,9 @@ class QdzsSystem(BaseSystem):
             },
             "total": len(locations),
             "locations": locations,
+            # 官方原始字段，便于调用方直接使用
+            "DDLIST": task.get("DDLIST") or [],
+            "QDXX": task.get("QDXX") or {},
         }}
 
     def today_signin(self, latitude: float, longitude: float,
@@ -340,7 +343,10 @@ class QdzsSystem(BaseSystem):
                               "longitude": round(bd_lng, 7), "coordType": "bd09"},
                 "detectedCoordType": detected_type,
                 "address": ddmc,
-                "location": nearest}
+                "location": nearest,
+                # 官方原始字段，便于调用方直接使用
+                "DDLIST": task.get("DDLIST") or [],
+                "QDXX": task.get("QDXX") or {}}
         if candidates is not None:
             base["candidates"] = candidates
         reason = ""

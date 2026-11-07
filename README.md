@@ -350,7 +350,7 @@ curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json
 
 `GET /api/v1/xsfw/qdzs/locations`
 
-自动选择今天的签到任务，返回该任务允许的签到地点：
+自动选择今天的签到任务，返回该任务允许的签到地点；同时保留官方原始 `DDLIST` / `QDXX` 字段：
 
 ```bash
 curl -H "X-API-Key: <你的 Key>" \
