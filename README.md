@@ -346,7 +346,29 @@ curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json
 
 返回 `submitted`、命中的签到点/距离、资格检查结果和签到后状态；只允许当前账号自己宿舍楼对应的签到围栏，不符合考勤时间、名单、请假、归宿状态或围栏条件时不会提交。
 
-### 4.5 智慧学工 / 签到助手 / 今日签到
+### 4.5 智慧学工 / 签到助手 / 签到地点
+
+`GET /api/v1/xsfw/qdzs/locations`
+
+自动选择今天的签到任务，返回该任务允许的签到地点：
+
+```bash
+curl -H "X-API-Key: <你的 Key>" \
+  http://127.0.0.1:10381/api/v1/xsfw/qdzs/locations
+```
+
+返回：
+
+```json
+{"code":0,"msg":"ok","data":{
+  "task":{"rwbh":"...","name":"1106-1108全校定位签到"},
+  "total":1,
+  "locations":[{"name":"学校","code":"...","latitude":34.612396,
+                "longitude":112.441906,"radius":100.0}]
+}}
+```
+
+### 4.6 智慧学工 / 签到助手 / 今日签到
 
 `POST /api/v1/xsfw/qdzs/today-signin`
 
@@ -378,7 +400,7 @@ curl -X POST "http://127.0.0.1:10381/api/v1/xsfw/qdzs/today-signin" \
   -d '{"latitude":34.610278,"longitude":112.409723}'
 ```
 
-### 4.6 多用户与 API Key 规则
+### 4.7 多用户与 API Key 规则
 
 * 后台「👤 我的账号」可查看/复制/重新生成自己的 Key；**重新生成后旧 Key 立即失效**；
 * 不同 Key 对应不同用户的统一认证会话，互不影响；

@@ -232,6 +232,32 @@ class QdzsSystem(BaseSystem):
                 continue
         return locations
 
+    def checkin_locations(self) -> dict:
+        """返回当前签到任务允许的签到地点（DDLIST）."""
+        self.ensure_session()
+        rwbh = self._select_today_task()
+        if not rwbh:
+            return {"code": 1, "msg": "没有可用的今日签到任务", "data": None}
+        self._last_rwbh = rwbh
+        task = self._info(rwbh)
+        rw = task.get("RWXX") or {}
+        locations = self._location_list(task)
+        return {"code": 0, "msg": "ok", "data": {
+            "task": {
+                "rwbh": rw.get("RWBH") or rwbh,
+                "name": rw.get("RWMC") or "",
+                "method": rw.get("QDFS_DISPLAY") or "",
+                "period": rw.get("QDPL_DISPLAY") or "",
+                "dateStart": rw.get("QDKSRQ") or "",
+                "dateEnd": rw.get("QDJSRQ") or "",
+                "timeStart": rw.get("QDKSSJ") or "",
+                "timeEnd": rw.get("QDJSSJ") or "",
+                "serverTime": rw.get("CURTIME") or "",
+            },
+            "total": len(locations),
+            "locations": locations,
+        }}
+
     def today_signin(self, latitude: float, longitude: float,
                      coord_type: str = "auto") -> dict:
         self.ensure_session()

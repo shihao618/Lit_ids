@@ -14,6 +14,12 @@ router = APIRouter(prefix="/api/v1/xsfw/qdzs", tags=["签到助手"],
                    dependencies=[Depends(require_api_key)])
 
 
+@router.get("/locations", summary="签到地点")
+def checkin_locations(system: QdzsSystem = Depends(get_qdzs)) -> dict[str, Any]:
+    """返回签到助手当前任务允许的签到地点（名称/经纬度/半径）."""
+    return system.checkin_locations()
+
+
 @router.post("/today-signin", summary="今日签到")
 def today_signin(body: TodaySigninIn,
                  system: QdzsSystem = Depends(get_qdzs)) -> dict[str, Any]:
