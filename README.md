@@ -363,7 +363,7 @@ curl -X POST -H "X-API-Key: <你的 API Key>" -H "Content-Type: application/json
 | `longitude` | number | 是 | 经度 |
 | `coordType` | string | 否 | `auto`（默认）/ `wgs84` / `gcj02` / `bd09` |
 
-接口会自动查询今天的任务，再按任务规则判断并提交：
+接口会自动查询今天的任务，并按坐标反查地址作为 `DDMC`，再按任务规则判断并提交：
 
 - 任务是否结束；
 - 今天是否需要签到；

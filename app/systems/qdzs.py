@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import urllib.parse
+import urllib.request
 
 import lit_login as L
-from ..geo import to_bd09
+from ..geo import bd09_to_mc, to_bd09
 from ..session import SessionManager
 from .base import BaseSystem, SystemError
 
@@ -22,6 +24,7 @@ class QdzsSystem(BaseSystem):
     APPID = "6390414391613368"
     APPNAME = "swmqdzsapp"
     TASKS_PATH = "/xsfw/sys/swmqdzsapp/MobileJrqdController/getJrqdList.do"
+    RWLB_PATH = "/xsfw/sys/swmqdzsapp/MobileRwlbController/getRwlbList.do"
     INFO_PATH = "/xsfw/sys/swmqdzsapp/MobileJrqdController/getTodaySignInInfo.do"
     SIGN_PATH = "/xsfw/sys/swmqdzsapp/MobileJrqdController/doSignIn.do"
     ROLES_PATH = "/xsfw/sys/swpubapp/NewMobileAPIController/getUserRoles.do"
@@ -33,6 +36,7 @@ class QdzsSystem(BaseSystem):
         self._sso_ready = False
         self._generation = -1
         self._role = None
+        self._last_rwbh = ""
 
     def _post_data(self, path: str, payload: dict, referer: str | None = None):
         body = urllib.parse.urlencode({"data": json.dumps(payload, ensure_ascii=False,
@@ -107,11 +111,23 @@ class QdzsSystem(BaseSystem):
                               code=data.get("code"), http_status=502)
         return data.get("data") or []
 
+    def _all_tasks(self) -> list[dict]:
+        """今日任务为空时的兜底：任务列表（含已签到任务）."""
+        _, data = self._post_data(self.RWLB_PATH, {
+            "querySetting": "[]", "pageNumber": 1, "pageSize": 10})
+        if str(data.get("code")) not in ("0", "200"):
+            return []
+        return data.get("data") or []
+
     def _select_today_task(self) -> str:
         """不传 RWBH 时，从任务列表中选择今天可用的任务."""
         from datetime import date
         today = date.today().isoformat()
         tasks = self._tasks()
+        if not tasks:
+            tasks = self._all_tasks()
+        if not tasks and self._last_rwbh:
+            return self._last_rwbh
         candidates = []
         for item in tasks:
             start = str(item.get("QDKSRQ") or "")
@@ -131,12 +147,44 @@ class QdzsSystem(BaseSystem):
                 continue
             rw = info.get("RWXX") or {}
             if str(rw.get("JRSFXYQD") or "0") == "1" and str(rw.get("SFJS") or "0") != "1":
+                self._last_rwbh = rwbh
                 return rwbh
         if candidates:
-            return str(candidates[0].get("RWBH") or "")
+            self._last_rwbh = str(candidates[0].get("RWBH") or "")
+            return self._last_rwbh
         if tasks:
-            return str(tasks[0].get("RWBH") or "")
+            self._last_rwbh = str(tasks[0].get("RWBH") or "")
+            return self._last_rwbh
         return ""
+
+    @staticmethod
+    def _reverse_address(lat: float, lng: float) -> str:
+        """用转换后的百度坐标反查 DDMC 地址；失败时返回空字符串."""
+        try:
+            x, y = bd09_to_mc(lat, lng)
+            ak = os.environ.get("BAIDU_MAP_AK") or "pKJYS6YwnX5OIGnLdGmL1uEB8GzGuhQo"
+            params = {
+                "qt": "rgc", "x": "%.2f" % x, "y": "%.2f" % y,
+                "dis_poi": "100", "poi_num": "10", "latest_admin": "1",
+                "ie": "utf-8", "oue": "1", "fromproduct": "jsapi",
+                "v": "2.1", "res": "api", "ak": ak,
+            }
+            url = "https://api.map.baidu.com/?" + urllib.parse.urlencode(params)
+            req = urllib.request.Request(url, headers={
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "application/json, text/plain, */*",
+            })
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                data = json.loads(resp.read().decode("utf-8", "replace"))
+            content = data.get("content") or {}
+            address = str(content.get("address") or "").strip()
+            poi = str(content.get("poi_desc") or "")
+            if address:
+                return address
+            return poi.split(",")[0].strip()
+        except Exception as exc:  # noqa: BLE001
+            log.info("百度逆地理编码失败，DDMC 回退签到点名称: %s", exc)
+            return ""
 
     @staticmethod
     def _distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -190,6 +238,7 @@ class QdzsSystem(BaseSystem):
         rwbh = self._select_today_task()
         if not rwbh:
             return {"code": 1, "msg": "没有可用的今日签到任务", "data": None}
+        self._last_rwbh = rwbh
         task = self._info(rwbh)
         rw = task.get("RWXX") or {}
         qd = task.get("QDXX") or {}
@@ -234,6 +283,10 @@ class QdzsSystem(BaseSystem):
         in_range = bool(nearest and nearest["distance"] <= nearest["radius"])
         if nearest:
             nearest = {**nearest, "inRange": in_range}
+        # DDMC 从当前坐标反查，而不是使用任务点名称
+        ddmc = self._reverse_address(bd_lat, bd_lng)
+        if not ddmc:
+            ddmc = nearest["name"] if nearest else "当前位置"
         checks = {
             "taskEnded": str(rw.get("SFJS") or "0") == "1",
             "needToday": str(rw.get("JRSFXYQD") or "0") == "1",
@@ -260,6 +313,7 @@ class QdzsSystem(BaseSystem):
                 "converted": {"latitude": round(bd_lat, 7),
                               "longitude": round(bd_lng, 7), "coordType": "bd09"},
                 "detectedCoordType": detected_type,
+                "address": ddmc,
                 "location": nearest}
         if candidates is not None:
             base["candidates"] = candidates
@@ -283,8 +337,7 @@ class QdzsSystem(BaseSystem):
         payload = {
             "RWBH": rwbh,
             "SFFWN": "1" if in_range else "0",
-            "DDMC": (nearest["name"] if in_range else
-                     (nearest["name"] if nearest else "当前位置")),
+            "DDMC": ddmc,
             "QDJD": str(bd_lng),
             "QDWD": str(bd_lat),
         }
