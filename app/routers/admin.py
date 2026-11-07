@@ -871,10 +871,10 @@ _DASHBOARD_TMPL = """<!doctype html>
       </div>
     </section>
 
-    <!-- 接口自测（智能查寝） -->
+    <!-- 接口自测（顺序与前台 API 文档一致） -->
     <section class="panel" id="panel-test">
       <div class="card">
-        <h2>接口自测（智能查寝 · 使用我自己的会话）</h2>
+        <h2>接口自测（智慧学工 · 智能查寝 · 查寝记录）</h2>
         <div class="row">
           <span>参数：</span>
           <input id="test-class-code" value="" placeholder="classCode 班级代码" style="width:170px">
@@ -895,8 +895,44 @@ _DASHBOARD_TMPL = """<!doctype html>
         </div>
         <pre id="check-records-out">（接口自测结果）</pre>
       </div>
+
       <div class="card">
-        <h2>接口自测（签到助手 · 使用我自己的会话）</h2>
+        <h2>接口自测（智慧学工 · 智能查寝 · 签到地点）</h2>
+        <div class="row">
+          <button type="button" class="gray" onclick="testCheckinLocations()">获取可打卡地点</button>
+          <label style="display:inline-flex;align-items:center;gap:4px;margin:0"><input type="checkbox" id="checkin-locations-mine" style="width:auto"> 只看我的</label>
+        </div>
+        <pre id="checkin-locations-out">（可打卡地点）</pre>
+      </div>
+
+      <div class="card">
+        <h2>接口自测（智慧学工 · 智能查寝 · 定位签到）</h2>
+        <div class="row">
+          <span>经纬度：</span>
+          <input id="test-latitude" value="34.610278" placeholder="latitude 纬度" style="width:170px">
+          <input id="test-longitude" value="112.409723" placeholder="longitude 经度" style="width:170px">
+          <select id="test-coord-type" style="width:120px" title="输入坐标系">
+            <option value="auto" selected>自动识别</option>
+            <option value="wgs84">WGS84</option>
+            <option value="gcj02">GCJ02</option>
+            <option value="bd09">BD09</option>
+          </select>
+          <button type="button" onclick="testLocationCheckin()">提交</button>
+        </div>
+        <div class="note">服务端会校验考勤时间、名单、请假/归宿状态，并且只允许当前账号自己宿舍楼对应的签到围栏；不符合时不会提交。</div>
+        <pre id="location-checkin-out">（接口自测结果）</pre>
+      </div>
+
+      <div class="card">
+        <h2>接口自测（智慧学工 · 签到助手 · 签到地点）</h2>
+        <div class="row">
+          <button type="button" class="gray" onclick="testQdzsLocations()">获取签到地点</button>
+        </div>
+        <pre id="qdzs-locations-out">（签到地点）</pre>
+      </div>
+
+      <div class="card">
+        <h2>接口自测（智慧学工 · 签到助手 · 今日签到）</h2>
         <div class="row">
           <span>经纬度：</span>
           <input id="test-qdzs-latitude" value="34.610278" placeholder="latitude 纬度" style="width:170px">
@@ -907,15 +943,14 @@ _DASHBOARD_TMPL = """<!doctype html>
             <option value="gcj02">GCJ02</option>
             <option value="bd09">BD09</option>
           </select>
-          <button type="button" onclick="testQdzsLocations()">获取签到地点</button>
-          <button type="button" class="gray" onclick="testQdzsTodaySignin()">今日签到</button>
+          <button type="button" class="green" onclick="testQdzsTodaySignin()">今日签到</button>
         </div>
         <div class="note">签到助手会自动发现今日任务；按任务状态和范围规则提交，并回查今日签到记录。</div>
-        <pre id="qdzs-locations-out">（签到地点）</pre>
         <pre id="qdzs-signin-out">（今日签到结果）</pre>
       </div>
+
       <div class="card">
-        <h2>接口自测（教务课表 · 使用我自己的会话）</h2>
+        <h2>接口自测（教务系统 · 课表查询）</h2>
         <div class="row">
           <span>参数：</span>
           <input id="test-semester" value="" placeholder="semester（空=当前）" style="width:160px">
@@ -933,26 +968,6 @@ _DASHBOARD_TMPL = """<!doctype html>
           <button type="button" onclick="testSchedule()">查询</button>
         </div>
         <pre id="schedule-out">（接口自测结果）</pre>
-      </div>
-      <div class="card">
-        <h2>接口自测（定位签到 · 使用我自己的会话）</h2>
-        <div class="row">
-          <span>经纬度：</span>
-          <input id="test-latitude" value="34.610278" placeholder="latitude 纬度" style="width:170px">
-          <input id="test-longitude" value="112.409723" placeholder="longitude 经度" style="width:170px">
-          <select id="test-coord-type" style="width:120px" title="输入坐标系">
-            <option value="auto" selected>自动识别</option>
-            <option value="wgs84">WGS84</option>
-            <option value="gcj02">GCJ02</option>
-            <option value="bd09">BD09</option>
-          </select>
-          <button type="button" onclick="testLocationCheckin()">提交</button>
-          <button type="button" class="gray" onclick="testCheckinLocations()">获取可打卡地点</button>
-          <label style="display:inline-flex;align-items:center;gap:4px;margin:0"><input type="checkbox" id="checkin-locations-mine" style="width:auto"> 只看我的</label>
-        </div>
-        <div class="note">服务端会校验考勤时间、名单、请假/归宿状态，并且只允许当前账号自己宿舍楼对应的签到围栏；不符合时不会提交。</div>
-        <pre id="location-checkin-out">（接口自测结果）</pre>
-        <pre id="checkin-locations-out">（可打卡地点）</pre>
       </div>
     </section>
 
