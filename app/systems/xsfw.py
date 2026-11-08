@@ -303,6 +303,22 @@ class XsfwSystem(BaseSystem):
             status, text = self._post_form(self.CQZTBG_PATH, fields)
         return status, text
 
+    def _today_needs_checkin(self) -> bool:
+        """判断今天是否为查寝日；无法判断时不拦截."""
+        try:
+            data = self.student_kq_info()
+        except Exception as exc:  # noqa: BLE001
+            log.info("查询今日查寝配置失败，按需要查寝处理: %s", exc)
+            return True
+        finally:
+            # student_kq_info 会切换学生组角色；清掉缓存，让后续 check_records
+            # 重新设置班级管理员角色。
+            self._role = None
+        cfg = data.get("CONFIG_INFO") or {}
+        if "IN_DATE" not in cfg:
+            return True
+        return bool(cfg.get("IN_DATE"))
+
     def check_records(self, class_code: str = "", check_status: str = "",
                       check_status_type: str = "") -> dict:
         """智能查寝-查寝记录（自有参数/易读返回），自动分页拉全.
@@ -325,6 +341,10 @@ class XsfwSystem(BaseSystem):
         if type_code:
             filters["CQZTLX"] = type_code
         query_setting = self._build_query_setting(filters)
+
+        if not self._today_needs_checkin():
+            return {"code": 0, "msg": "ok",
+                    "data": {"total": 0, "items": []}}
 
         with self.session.lock:
             self.set_role(None)

@@ -56,7 +56,10 @@ def location_checkin(body: LocationCheckinIn,
 @router.post("/records", summary="查寝记录")
 def check_records(body: CheckRecordsIn,
                   system: XsfwSystem = Depends(get_xsfw)) -> dict[str, Any]:
-    """查询查寝记录。
+    """查询当前查寝名单。
+
+    服务端会先判断今天是否为查寝日；今天无需查寝时返回
+    `total=0, items=[]`，不请求官方查寝名单。
 
     * 请求：`classCode`（班级）、`checkStatus`（查寝状态）、`checkStatusType`（状态类型）；
     * 返回：`data.total` + `data.items`（学号/姓名/班级/宿舍/房间/床位/电话/状态中文等）。

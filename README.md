@@ -242,6 +242,14 @@ curl -X POST "http://127.0.0.1:10381/api/v1/xsfw/dorm-checkin/records" \
 
 > 对外只返回易读字段；内部由网关拼 `querySetting` 调用官方 `cqztbg.do`，并按 200 条/页自动拉全。
 
+今天不是查寝日时，接口直接返回：
+
+```json
+{"total":0,"items":[]}
+```
+
+不会请求官方查寝名单。
+
 ### 4.2 教务系统 / 课表查询
 
 `POST /api/v1/lljw/schedule`（JSON 请求体）
