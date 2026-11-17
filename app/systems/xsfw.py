@@ -95,6 +95,8 @@ class XsfwSystem(BaseSystem):
         self._roles: list[dict] = []
         self._role: dict | None = None
         self._menu: list[dict] = []
+        #: (session_generation, date, need_checkin) 缓存，避免每次查记录都切学生组角色
+        self._need_checkin_cache: tuple[int, str, bool] | None = None
 
     # ------------------------------------------------------------------ 基础请求
     def _headers(self, referer: str | None = None) -> dict:
@@ -290,21 +292,40 @@ class XsfwSystem(BaseSystem):
         }
 
     def _fetch_page(self, fields: dict) -> tuple[int, str]:
-        try:
-            status, text = self._post_form(self.CQZTBG_PATH, fields)
-        except Exception as e:  # noqa: BLE001
-            raise SystemError("调用智能查寝接口失败: %s" % e,
-                              code="UPSTREAM_ERROR", http_status=502) from e
-        if status == 401 or "Not login" in text:
-            log.warning("智能查寝会话失效，重建 SSO 后重试一次")
-            self._sso_ready = False
-            self.ensure_session(force=True)
-            self.set_role(None)
-            status, text = self._post_form(self.CQZTBG_PATH, fields)
-        return status, text
+        for attempt in (0, 1):
+            try:
+                status, text = self._post_form(self.CQZTBG_PATH, fields)
+            except Exception as e:  # noqa: BLE001
+                message = str(e)
+                transient = ("timed out" in message.lower()
+                             or "timeout" in message.lower())
+                if attempt == 0 and transient:
+                    log.warning("智能查寝接口读取超时，重试一次: %s", e)
+                    time.sleep(0.8)
+                    continue
+                raise SystemError("调用智能查寝接口失败: %s" % e,
+                                  code="UPSTREAM_ERROR", http_status=502) from e
+            if status == 401 or "Not login" in text:
+                log.warning("智能查寝会话失效，重建 SSO 后重试一次")
+                self._sso_ready = False
+                self.ensure_session(force=True)
+                self.set_role(None)
+                continue
+            return status, text
+        raise SystemError("调用智能查寝接口失败: 重试后仍无响应",
+                          code="UPSTREAM_ERROR", http_status=502)
 
     def _today_needs_checkin(self) -> bool:
-        """判断今天是否为查寝日；无法判断时不拦截."""
+        """判断今天是否为查寝日；无法判断时不拦截.
+
+        缓存按 CAS 会话代次 + 日期隔离，避免每次查记录都切换学生组角色。
+        调用方应持有 session.lock，防止并发请求切换角色。
+        """
+        generation = self.session.generation
+        today = time.strftime("%Y-%m-%d")
+        cache = self._need_checkin_cache
+        if cache and cache[0] == generation and cache[1] == today:
+            return cache[2]
         try:
             data = self.student_kq_info()
         except Exception as exc:  # noqa: BLE001
@@ -315,9 +336,9 @@ class XsfwSystem(BaseSystem):
             # 重新设置班级管理员角色。
             self._role = None
         cfg = data.get("CONFIG_INFO") or {}
-        if "IN_DATE" not in cfg:
-            return True
-        return bool(cfg.get("IN_DATE"))
+        value = True if "IN_DATE" not in cfg else bool(cfg.get("IN_DATE"))
+        self._need_checkin_cache = (generation, today, value)
+        return value
 
     def check_records(self, class_code: str = "", check_status: str = "",
                       check_status_type: str = "") -> dict:
@@ -342,11 +363,10 @@ class XsfwSystem(BaseSystem):
             filters["CQZTLX"] = type_code
         query_setting = self._build_query_setting(filters)
 
-        if not self._today_needs_checkin():
-            return {"code": 0, "msg": "ok",
-                    "data": {"total": 0, "items": []}}
-
         with self.session.lock:
+            if not self._today_needs_checkin():
+                return {"code": 0, "msg": "ok",
+                        "data": {"total": 0, "items": []}}
             self.set_role(None)
             items: list[dict] = []
             total = 0
