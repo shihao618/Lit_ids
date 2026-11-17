@@ -142,6 +142,32 @@ def _self_public(store: UserStore, user: dict) -> dict:
     return data
 
 
+#: 用户列表里展示的统一认证会话状态字段（白名单，不泄露 cookie/TGC/debug）
+_SESSION_PUBLIC_FIELDS = (
+    "logged_in", "session_expired", "tgc_valid",
+    "username", "cas_username", "cas_configured",
+    "login_time", "valid_checked_at",
+    "pending_mfa", "mfa_expired", "last_error",
+)
+
+
+def _public_with_session(store: UserStore, registry, user: dict) -> dict:
+    """用户公开信息 + 统一认证会话摘要（后台用户管理展示用）."""
+    data = UserStore.public_user(user)
+    try:
+        status = registry.session(user["id"]).status()
+        data["session"] = {key: status.get(key) for key in _SESSION_PUBLIC_FIELDS}
+    except Exception:  # noqa: BLE001
+        data["session"] = {
+            "logged_in": False, "session_expired": False, "tgc_valid": None,
+            "username": "", "cas_username": user.get("cas_username") or "",
+            "cas_configured": bool(user.get("cas_username")),
+            "login_time": "", "valid_checked_at": "",
+            "pending_mfa": False, "mfa_expired": False, "last_error": "",
+        }
+    return data
+
+
 @api.get("/state", summary="当前用户 + 自己的会话 + 自己的 API Key")
 def api_state(request: Request, user: dict = Depends(require_login)) -> dict[str, Any]:
     store: UserStore = request.app.state.store
@@ -154,7 +180,7 @@ def api_state(request: Request, user: dict = Depends(require_login)) -> dict[str
     is_admin = user.get("role") == "admin"
     users = []
     if is_admin:
-        users = [UserStore.public_user(u) for u in store.list()]
+        users = [_public_with_session(store, registry, u) for u in store.list()]
     return {
         "time": time.strftime("%Y-%m-%d %H:%M:%S"),
         "user": _self_public(store, user),
@@ -362,7 +388,9 @@ def test_schedule(
 @api.get("/users", summary="用户列表（管理员）")
 def list_users(request: Request, admin: dict = Depends(require_admin_user)) -> dict[str, Any]:
     store: UserStore = request.app.state.store
-    return {"ok": True, "users": [UserStore.public_user(u) for u in store.list()]}
+    registry = get_registry(request)
+    return {"ok": True, "users": [
+        _public_with_session(store, registry, u) for u in store.list()]}
 
 
 @api.post("/users", summary="创建用户（管理员）")
@@ -596,6 +624,7 @@ pre{background:#0f172a;color:#e2e8f0;padding:12px 14px;border-radius:10px;overfl
 .msg.ok{background:var(--green-soft);color:#047a3d}
 .ok-tag{color:#047a3d;font-weight:600}
 .bad-tag{color:#b91c1c;font-weight:600}
+.warn-tag{color:#b45309;font-weight:600}
 .table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:10px;border:1px solid var(--border);border-radius:10px}
 table{width:100%;border-collapse:collapse;font-size:12.5px;margin:0}
 th,td{padding:9px 11px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
@@ -988,7 +1017,7 @@ _DASHBOARD_TMPL = """<!doctype html>
         </div>
         <div id="users-msg" class="msg"></div>
         <div class="table-wrap"><table id="users-table">
-          <thead><tr><th>用户名</th><th>角色</th><th>统一认证账号</th><th>API Key</th><th>创建时间</th><th>操作</th></tr></thead>
+          <thead><tr><th>用户名</th><th>角色</th><th>统一认证账号</th><th>登录状态</th><th>API Key</th><th>创建时间</th><th>操作</th></tr></thead>
           <tbody id="users-tbody"></tbody>
         </table></div>
       </div>
@@ -1165,10 +1194,26 @@ function renderCaptcha(list){
   for(const c of list){h+='<tr><td>'+c.attempt+'</td><td>'+fmt(c.style)+'</td><td>'+fmt(c.random_x)+'</td><td>'+fmt(c.residual)+'</td><td>'+fmt(c.margin)+'</td><td>'+(c.accepted?'✅ 采用':'跳过'+(c.reason?('（'+esc(c.reason)+'）'):''))+'</td></tr>';}
   $('captcha-debug').innerHTML='<div style="margin-top:12px"><b>滑块验证码识别过程</b><div class="table-wrap">'+h+'</div></div>';
 }
+function userSessionTag(u){
+  const s=u.session||{};
+  let label='未配置', cls='bad-tag';
+  if(u.cas_username){
+    if(s.pending_mfa){label='待验证码';cls='warn-tag';}
+    else if(s.mfa_expired){label='验证码已过期';cls='warn-tag';}
+    else if(s.session_expired||s.tgc_valid===false){label='已掉线';cls='bad-tag';}
+    else if(s.logged_in){label='已登录';cls='ok-tag';}
+    else{label='未登录';cls='bad-tag';}
+  }
+  const tips=[];
+  if(s.login_time) tips.push('登录时间: '+s.login_time);
+  if(s.valid_checked_at) tips.push('检测时间: '+s.valid_checked_at);
+  if(s.last_error) tips.push('最近错误: '+s.last_error);
+  return '<span class="'+cls+'" title="'+esc(tips.join('；'))+'">'+label+'</span>';
+}
 function renderUsers(users){
   let h='';
   for(const u of users){
-    h+='<tr><td>'+esc(u.username)+(u.role==='admin'?' <span class="ok-tag">管理员</span>':'')+'</td><td>'+esc(u.role)+'</td><td>'+fmt(u.cas_username)+'</td><td><code>'+esc(u.api_key||'')+'</code></td><td>'+fmt(u.created_at)+
+    h+='<tr><td>'+esc(u.username)+(u.role==='admin'?' <span class="ok-tag">管理员</span>':'')+'</td><td>'+esc(u.role)+'</td><td>'+fmt(u.cas_username)+'</td><td>'+userSessionTag(u)+'</td><td><code>'+esc(u.api_key||'')+'</code></td><td>'+fmt(u.created_at)+
        '</td><td>'
        +'<button type="button" class="gray" data-id="'+esc(u.id)+'" onclick="resetUserPwd(this.dataset.id)">重置密码</button>'+
        '<button type="button" class="gray" data-id="'+esc(u.id)+'" onclick="resetUserKey(this.dataset.id)">重置Key</button>'+
@@ -1176,7 +1221,7 @@ function renderUsers(users){
        +(u.id!==MY_ID?'<button type="button" class="gray" title="以该用户身份登录后台" data-id="'+esc(u.id)+'" onclick="impersonateUser(this.dataset.id)">登录该用户</button>':'')
        +'</td></tr>';
   }
-  $('users-tbody').innerHTML=h||'<tr><td colspan="6">暂无用户</td></tr>';
+  $('users-tbody').innerHTML=h||'<tr><td colspan="7">暂无用户</td></tr>';
 }
 
 function copyTextFallback(text){
