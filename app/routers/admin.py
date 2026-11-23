@@ -368,6 +368,14 @@ def test_qdzs_today_signin(body: TodaySigninIn,
         return _err(e)
 
 
+@api.get("/test/xsqj-locations", summary="自测：学生请销假-销假地点")
+def test_xsqj_locations(system=Depends(get_admin_xsqj)) -> dict[str, Any]:
+    try:
+        return {"ok": True, "data": system.location_points()}
+    except (SystemError, SessionError) as e:
+        return _err(e)
+
+
 @api.get("/test/xsqj-leaves", summary="自测：学生请销假-请假列表")
 def test_xsqj_leaves(system=Depends(get_admin_xsqj)) -> dict[str, Any]:
     try:
@@ -1000,6 +1008,14 @@ _DASHBOARD_TMPL = """<!doctype html>
       </div>
 
       <div class="card">
+        <h2>接口自测（智慧学工 · 学生请销假 · 销假地点）</h2>
+        <div class="row">
+          <button type="button" class="gray" onclick="testXsqjLocations()">查询销假地点</button>
+        </div>
+        <pre id="xsqj-locations-out">（销假地点）</pre>
+      </div>
+
+      <div class="card">
         <h2>接口自测（智慧学工 · 学生请销假 · 请假列表）</h2>
         <div class="row">
           <button type="button" class="gray" onclick="testXsqjLeaves()">查询请假列表</button>
@@ -1375,6 +1391,10 @@ async function testQdzsTodaySignin(){
   }
   const r=await post('/admin/api/test/qdzs-today-signin',body);
   $('qdzs-signin-out').textContent=JSON.stringify(r,null,2);
+}
+async function testXsqjLocations(){
+  const r=await api('/admin/api/test/xsqj-locations');
+  $('xsqj-locations-out').textContent=JSON.stringify(r,null,2);
 }
 async function testXsqjLeaves(){
   const r=await api('/admin/api/test/xsqj-leaves');
