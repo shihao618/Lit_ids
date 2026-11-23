@@ -41,12 +41,12 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from ..admin_auth import (COOKIE_NAME, DEFAULT_TTL, IMPERSONATOR_COOKIE,
                           get_cookie_user, make_token, parse_token, require_admin_user, require_login)
-from ..deps import get_admin_lljw, get_admin_qdzs, get_admin_xsfw, get_registry
+from ..deps import get_admin_lljw, get_admin_qdzs, get_admin_xsfw, get_admin_xsqj, get_registry
 from ..logbuf import log_buffer
 from ..restart import schedule_restart
 from ..schemas import (
     AdminCasIn, AdminLoginIn, AdminMfaIn, AdminPasswordIn, AdminRoleIn,
-    CasSettingsIn, LocationCheckinIn, SelfPasswordIn, SystemSettingsIn,
+    CasSettingsIn, LocationCancelIn, LocationCheckinIn, SelfPasswordIn, SystemSettingsIn,
     TodaySigninIn, UserCreateIn,
 )
 from ..session import SessionError
@@ -364,6 +364,24 @@ def test_qdzs_today_signin(body: TodaySigninIn,
     try:
         return {"ok": True, "data": system.today_signin(
             body.latitude, body.longitude, body.coordType)}
+    except (SystemError, SessionError) as e:
+        return _err(e)
+
+
+@api.get("/test/xsqj-leaves", summary="自测：学生请销假-请假列表")
+def test_xsqj_leaves(system=Depends(get_admin_xsqj)) -> dict[str, Any]:
+    try:
+        return {"ok": True, "data": system.leave_records()}
+    except (SystemError, SessionError) as e:
+        return _err(e)
+
+
+@api.post("/test/xsqj-location-cancel", summary="自测：学生请销假-定位销假")
+def test_xsqj_location_cancel(body: LocationCancelIn,
+                             system=Depends(get_admin_xsqj)) -> dict[str, Any]:
+    try:
+        return {"ok": True, "data": system.location_cancel(
+            body.leaveId, body.latitude, body.longitude, body.coordType)}
     except (SystemError, SessionError) as e:
         return _err(e)
 
@@ -982,6 +1000,32 @@ _DASHBOARD_TMPL = """<!doctype html>
       </div>
 
       <div class="card">
+        <h2>接口自测（智慧学工 · 学生请销假 · 请假列表）</h2>
+        <div class="row">
+          <button type="button" class="gray" onclick="testXsqjLeaves()">查询请假列表</button>
+        </div>
+        <pre id="xsqj-leaves-out">（请假列表）</pre>
+      </div>
+
+      <div class="card">
+        <h2>接口自测（智慧学工 · 学生请销假 · 定位销假）</h2>
+        <div class="row">
+          <input id="test-xsqj-leave-id" placeholder="leaveId 请假记录ID" style="width:260px">
+          <input id="test-xsqj-latitude" value="34.610278" placeholder="latitude 纬度" style="width:150px">
+          <input id="test-xsqj-longitude" value="112.409723" placeholder="longitude 经度" style="width:150px">
+          <select id="test-xsqj-coord-type" style="width:120px" title="输入坐标系">
+            <option value="auto" selected>自动识别</option>
+            <option value="wgs84">WGS84</option>
+            <option value="gcj02">GCJ02</option>
+            <option value="bd09">BD09</option>
+          </select>
+          <button type="button" class="red" onclick="testXsqjLocationCancel()">定位销假</button>
+        </div>
+        <div class="note">定位销假是真实提交，请确认 leaveId 和位置后再操作。</div>
+        <pre id="xsqj-cancel-out">（定位销假结果）</pre>
+      </div>
+
+      <div class="card">
         <h2>接口自测（教务系统 · 课表查询）</h2>
         <div class="row">
           <span>参数：</span>
@@ -1332,6 +1376,23 @@ async function testQdzsTodaySignin(){
   }
   const r=await post('/admin/api/test/qdzs-today-signin',body);
   $('qdzs-signin-out').textContent=JSON.stringify(r,null,2);
+}
+async function testXsqjLeaves(){
+  const r=await api('/admin/api/test/xsqj-leaves');
+  $('xsqj-leaves-out').textContent=JSON.stringify(r,null,2);
+}
+async function testXsqjLocationCancel(){
+  const body={leaveId:$('test-xsqj-leave-id').value.trim(),
+              latitude:Number($('test-xsqj-latitude').value),
+              longitude:Number($('test-xsqj-longitude').value),
+              coordType:$('test-xsqj-coord-type').value};
+  if(!body.leaveId||!Number.isFinite(body.latitude)||!Number.isFinite(body.longitude)){
+    $('xsqj-cancel-out').textContent='请输入 leaveId 和合法经纬度';
+    return;
+  }
+  if(!confirm('定位销假是真实提交，确认执行？')) return;
+  const r=await post('/admin/api/test/xsqj-location-cancel',body);
+  $('xsqj-cancel-out').textContent=JSON.stringify(r,null,2);
 }
 async function createUser(){
   const body={username:$('new-username').value.trim(),password:$('new-password').value,role:$('new-role').value,

@@ -138,6 +138,16 @@ class TodaySigninIn(BaseModel):
         "auto", description="输入坐标系：auto（自动识别，默认）/ wgs84 / gcj02 / bd09")
 
 
+class LocationCancelIn(BaseModel):
+    """学生请销假-定位销假."""
+
+    leaveId: str = Field(..., min_length=4, description="请假记录 leaveId")
+    latitude: float = Field(..., ge=-90, le=90, description="纬度")
+    longitude: float = Field(..., ge=-180, le=180, description="经度")
+    coordType: Literal["auto", "wgs84", "gcj02", "bd09"] = Field(
+        "auto", description="输入坐标系：auto（默认）/ wgs84 / gcj02 / bd09")
+
+
 class ScheduleIn(BaseModel):
     """教务系统-课表查询（自有参数）."""
 

@@ -425,7 +425,55 @@ curl -X POST "http://127.0.0.1:10381/api/v1/xsfw/qdzs/today-signin" \
   -d '{"latitude":34.610278,"longitude":112.409723}'
 ```
 
-### 4.7 多用户与 API Key 规则
+### 4.7 智慧学工 / 学生请销假 / 请假列表
+
+```http
+GET /api/v1/xsfw/xsqj/leaves
+X-API-Key: <你的 Key>
+```
+
+返回当前学生的请假记录：
+
+```json
+{"code":0,"msg":"ok","data":{"total":1,"items":[{
+  "leaveId":"60BF6CC18A575468E0638A6210AC18B7",
+  "leaveType":"病假","reason":"身体不适",
+  "startTime":"2026-11-21 16:00:00",
+  "endTime":"2026-11-22 18:00:00",
+  "status":"99","statusLabel":"已通过",
+  "cancelStatus":"0","cancelStatusLabel":"未销假"
+}]}}
+```
+
+### 4.8 智慧学工 / 学生请销假 / 定位销假
+
+```http
+POST /api/v1/xsfw/xsqj/location-cancel
+Content-Type: application/json
+X-API-Key: <你的 Key>
+```
+
+```json
+{
+  "leaveId": "60BF6CC18A575468E0638A6210AC18B7",
+  "latitude": 34.610278,
+  "longitude": 112.409723,
+  "coordType": "auto"
+}
+```
+
+服务端会：
+
+1. 确认请假记录属于当前学生；
+2. 确认请假已通过、尚未销假；
+3. 获取官方定位销假地点和允许偏差半径；
+4. 坐标转 BD09 并判断是否在范围内；
+5. 在范围内才提交 `setDWXJ.do`；
+6. 回查请假记录确认销假状态。
+
+不在范围、未通过、已销假或定位销假未开启时不会提交。
+
+### 4.9 多用户与 API Key 规则
 
 * 后台「👤 我的账号」可查看/复制/重新生成自己的 Key；**重新生成后旧 Key 立即失效**；
 * 不同 Key 对应不同用户的统一认证会话，互不影响；

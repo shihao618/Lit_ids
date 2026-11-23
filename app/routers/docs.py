@@ -148,9 +148,42 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
         }},
     },
 
+    ("GET", "/api/v1/xsfw/xsqj/leaves"): {
+        "response": {"code": 0, "msg": "ok", "data": {
+            "total": 1,
+            "items": [{
+                "leaveId": "60BF6CC18A575468E0638A6210AC18B7",
+                "applyNo": "60BF6CC18A585468E0638A6210AC18B7",
+                "leaveType": "病假",
+                "reason": "身体不适",
+                "startTime": "2026-11-21 16:00:00",
+                "endTime": "2026-11-22 18:00:00",
+                "days": 1.08,
+                "applyTime": "2026-11-21 12:17:48",
+                "status": "99",
+                "statusLabel": "已通过",
+                "cancelStatus": "0",
+                "cancelStatusLabel": "未销假",
+                "cancelTime": "",
+            }],
+        }},
+    },
+    ("POST", "/api/v1/xsfw/xsqj/location-cancel"): {
+        "request": {"leaveId": "60BF6CC18A575468E0638A6210AC18B7",
+                    "latitude": 34.610278, "longitude": 112.409723,
+                    "coordType": "auto"},
+        "response": {"code": 0, "msg": "ok", "data": {
+            "submitted": True,
+            "leave": {"leaveId": "60BF6CC18A575468E0638A6210AC18B7",
+                      "cancelStatus": "1", "cancelStatusLabel": "已销假"},
+            "location": {"name": "开元校区", "distance": 321.4,
+                         "radius": 550.0, "inRange": True},
+        }},
+    },
+
 }
 
-TAG_ORDER = ["认证/会话", "智慧学工", "智能查寝", "签到助手", "教务系统", "元信息"]
+TAG_ORDER = ["认证/会话", "智慧学工", "智能查寝", "签到助手", "学生请销假", "教务系统", "元信息"]
 
 # ============================================================ OpenAPI 辅助
 def _resolve_ref(spec: dict, ref: str) -> dict:
@@ -291,6 +324,10 @@ DOC_SECTIONS = [
             {"title": "签到助手", "items": [
                 ("签到地点", "GET", "/api/v1/xsfw/qdzs/locations"),
                 ("今日签到", "POST", "/api/v1/xsfw/qdzs/today-signin"),
+            ]},
+            {"title": "学生请销假", "items": [
+                ("请假列表", "GET", "/api/v1/xsfw/xsqj/leaves"),
+                ("定位销假", "POST", "/api/v1/xsfw/xsqj/location-cancel"),
             ]},
         ],
     },
@@ -723,7 +760,7 @@ DOCS_TMPL = """<!doctype html>
   <main id="main" class="docs-content">
     <article class="doc-content">
       <h1 class="doc-title">__APP_NAME__ · 接口文档</h1>
-      <p class="doc-lead">多用户统一认证接口网关：每个用户拥有自己的统一认证账号、独立 CAS 会话和独立 API Key。当前业务分类：智慧学工（智能查寝、签到助手）、教务系统（课表查询）。</p>
+      <p class="doc-lead">多用户统一认证接口网关：每个用户拥有自己的统一认证账号、独立 CAS 会话和独立 API Key。当前业务分类：智慧学工（智能查寝、签到助手、学生请销假）、教务系统（课表查询）。</p>
       <p class="doc-note">调用 <code class="code-inline">/api/v1/**</code> 接口需在请求头带 <code class="code-inline">X-API-Key</code>；页面本身不包含任何密钥，在线调试时只从本机浏览器读取。</p>
       <div class="doc-cards">
         <div class="doc-card"><h3 class="doc-card-title">统一响应格式</h3><p>成功：<code class="code-inline">{"code":0,"msg":"ok","data":...}</code></p><p>错误：<code class="code-inline">code</code> 为非 0，并带 <code class="code-inline">msg</code> / <code class="code-inline">hint</code>。</p></div>

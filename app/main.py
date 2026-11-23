@@ -138,7 +138,7 @@ def create_app() -> FastAPI:
     )
     app.state.settings = settings
 
-    from .routers import admin, auth, docs, dorm, health, lljw, qdzs
+    from .routers import admin, auth, docs, dorm, health, lljw, qdzs, xsqj
 
     app.include_router(docs.router)      # 前台接口文档（GET /）
     app.include_router(health.router)
@@ -146,6 +146,7 @@ def create_app() -> FastAPI:
     app.include_router(dorm.router)
     app.include_router(lljw.router)
     app.include_router(qdzs.router)
+    app.include_router(xsqj.router)
     app.include_router(admin.router)
 
     # ------------------------------------------------------------ 异常处理
@@ -191,6 +192,8 @@ def create_app() -> FastAPI:
                 "GET  /api/v1/xsfw/dorm-checkin/locations",
                 "POST /api/v1/xsfw/dorm-checkin/check-in",
                 "POST /api/v1/xsfw/qdzs/today-signin",
+                "GET  /api/v1/xsfw/xsqj/leaves",
+                "POST /api/v1/xsfw/xsqj/location-cancel",
                 "POST /api/v1/lljw/schedule",
             ],
         }
