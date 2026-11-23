@@ -141,7 +141,6 @@ class TodaySigninIn(BaseModel):
 class LocationCancelIn(BaseModel):
     """学生请销假-定位销假."""
 
-    leaveId: str = Field(..., min_length=4, description="请假记录 leaveId")
     latitude: float = Field(..., ge=-90, le=90, description="纬度")
     longitude: float = Field(..., ge=-180, le=180, description="经度")
     coordType: Literal["auto", "wgs84", "gcj02", "bd09"] = Field(

@@ -7,6 +7,7 @@ import logging
 import math
 import time
 import urllib.parse
+from datetime import datetime
 
 import lit_login as L
 from ..geo import to_bd09
@@ -149,23 +150,32 @@ class XsqjSystem(BaseSystem):
         best = min(candidates, key=lambda item: item[0])
         return best[2], best[3], best[1]
 
-    def location_cancel(self, leave_id: str, latitude: float, longitude: float,
+    def location_cancel(self, latitude: float, longitude: float,
                         coord_type: str = "auto") -> dict:
+        """自动定位销假：自动挑选已通过、未销假、已到结束时间的请假记录."""
         self.ensure_session()
-        leave_id = str(leave_id or "").strip()
-        if not leave_id:
-            return {"code": 1, "msg": "缺少请假记录 leaveId", "data": None}
         records = self.leave_records()["data"]["items"]
-        record = next((x for x in records if x.get("leaveId") == leave_id), None)
-        if not record:
-            return {"code": 1, "msg": "请假记录不存在", "data": None}
-        if str(record.get("cancelStatus") or "0") == "1":
+        now = datetime.now()
+        candidates = []
+        for record in records:
+            if str(record.get("status") or "") != "99":
+                continue
+            if str(record.get("cancelStatus") or "0") != "0":
+                continue
+            try:
+                end_time = datetime.strptime(
+                    str(record.get("endTime") or ""), "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                continue
+            if end_time <= now:
+                candidates.append(record)
+        if not candidates:
             return {"code": 0, "msg": "ok", "data": {
-                "submitted": False, "reason": "已经销过假",
-                "leave": record}}
-        if str(record.get("status") or "") != "99":
-            return {"code": 0, "msg": "ok", "data": {
-                "submitted": False, "reason": "请假未通过", "leave": record}}
+                "submitted": False,
+                "reason": "没有已通过、未销假且已结束的请假记录",
+                "now": now.strftime("%Y-%m-%d %H:%M:%S"),
+            }}
+        candidates.sort(key=lambda item: item.get("endTime") or "")
 
         _, info = self._post_data(self.DW_INFO_PATH, {})
         if str(info.get("code")) not in ("0", "200"):
@@ -175,7 +185,7 @@ class XsqjSystem(BaseSystem):
         if str(data.get("KQDWXJ") or "0") != "1":
             return {"code": 0, "msg": "ok", "data": {
                 "submitted": False, "reason": "当前未开启定位销假",
-                "leave": record}}
+                "candidates": candidates}}
         locations = []
         for item in data.get("location") or []:
             try:
@@ -205,31 +215,38 @@ class XsqjSystem(BaseSystem):
         if not nearest or nearest["distance"] > nearest["radius"]:
             return {"code": 0, "msg": "ok", "data": {
                 **base, "submitted": False, "reason": "不在定位销假范围",
-                "leave": record, "location": nearest}}
-        payload = {
-            "SQBH": leave_id,
-            "XJR": self.session.credentials.username,
-            "XJRQ": time.strftime("%Y-%m-%d %H:%M:%S"),
-        }
-        if str(data.get("KQDWPZXJ") or "0") == "1":
-            hzw = data.get("HZW") or []
-            if not hzw:
-                return {"code": 0, "msg": "ok", "data": {
-                    "submitted": False, "reason": "未配置合照",
-                    "leave": record}}
-            payload["HZSLTP"] = hzw[0].get("HZWSL") or ""
-            payload["HZWMC"] = hzw[0].get("HZWMC") or ""
-        status, result = self._post_data(self.CANCEL_PATH, payload)
-        if status != 200 or str(result.get("code")) not in ("0", "200"):
-            return {"code": 1, "msg": "销假失败: %s" % result.get("msg"),
-                    "data": {"submitted": False, "leave": record,
-                             "upstream": result}}
-        latest = next((x for x in self.leave_records()["data"]["items"]
-                       if x.get("leaveId") == leave_id), None)
+                "candidates": candidates, "location": nearest}}
+
+        cancelled, failed = [], []
+        for record in candidates:
+            leave_id = record.get("leaveId") or ""
+            payload = {
+                "SQBH": leave_id,
+                "XJR": self.session.credentials.username,
+                "XJRQ": time.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            if str(data.get("KQDWPZXJ") or "0") == "1":
+                hzw = data.get("HZW") or []
+                if not hzw:
+                    failed.append({"leaveId": leave_id,
+                                   "reason": "未配置合照"})
+                    continue
+                payload["HZSLTP"] = hzw[0].get("HZWSL") or ""
+                payload["HZWMC"] = hzw[0].get("HZWMC") or ""
+            status, result = self._post_data(self.CANCEL_PATH, payload)
+            if status == 200 and str(result.get("code")) in ("0", "200"):
+                cancelled.append(leave_id)
+            else:
+                failed.append({"leaveId": leave_id,
+                               "reason": result.get("msg") or "销假失败"})
+
+        latest_items = self.leave_records()["data"]["items"]
+        latest_map = {x.get("leaveId"): x for x in latest_items}
         return {"code": 0, "msg": "ok", "data": {
             **base,
-            "submitted": True,
-            "leave": latest or record,
+            "submitted": bool(cancelled),
+            "count": len(candidates),
+            "cancelled": [latest_map.get(x, {"leaveId": x}) for x in cancelled],
+            "failed": failed,
             "location": {**nearest, "inRange": True},
-            "upstream": result.get("data") or {},
         }}

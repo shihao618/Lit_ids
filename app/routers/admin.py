@@ -1010,7 +1010,6 @@ _DASHBOARD_TMPL = """<!doctype html>
       <div class="card">
         <h2>接口自测（智慧学工 · 学生请销假 · 定位销假）</h2>
         <div class="row">
-          <input id="test-xsqj-leave-id" placeholder="leaveId 请假记录ID" style="width:260px">
           <input id="test-xsqj-latitude" value="34.610278" placeholder="latitude 纬度" style="width:150px">
           <input id="test-xsqj-longitude" value="112.409723" placeholder="longitude 经度" style="width:150px">
           <select id="test-xsqj-coord-type" style="width:120px" title="输入坐标系">
@@ -1021,7 +1020,7 @@ _DASHBOARD_TMPL = """<!doctype html>
           </select>
           <button type="button" class="red" onclick="testXsqjLocationCancel()">定位销假</button>
         </div>
-        <div class="note">定位销假是真实提交，请确认 leaveId 和位置后再操作。</div>
+        <div class="note">定位销假会自动选择已结束、已通过且未销假的记录，并真实提交；请确认位置后再操作。</div>
         <pre id="xsqj-cancel-out">（定位销假结果）</pre>
       </div>
 
@@ -1382,12 +1381,11 @@ async function testXsqjLeaves(){
   $('xsqj-leaves-out').textContent=JSON.stringify(r,null,2);
 }
 async function testXsqjLocationCancel(){
-  const body={leaveId:$('test-xsqj-leave-id').value.trim(),
-              latitude:Number($('test-xsqj-latitude').value),
+  const body={latitude:Number($('test-xsqj-latitude').value),
               longitude:Number($('test-xsqj-longitude').value),
               coordType:$('test-xsqj-coord-type').value};
-  if(!body.leaveId||!Number.isFinite(body.latitude)||!Number.isFinite(body.longitude)){
-    $('xsqj-cancel-out').textContent='请输入 leaveId 和合法经纬度';
+  if(!Number.isFinite(body.latitude)||!Number.isFinite(body.longitude)){
+    $('xsqj-cancel-out').textContent='请输入合法经纬度';
     return;
   }
   if(!confirm('定位销假是真实提交，确认执行？')) return;

@@ -23,6 +23,6 @@ def leaves(system: XsqjSystem = Depends(get_xsqj)) -> dict[str, Any]:
 @router.post("/location-cancel", summary="定位销假")
 def location_cancel(body: LocationCancelIn,
                     system: XsqjSystem = Depends(get_xsqj)) -> dict[str, Any]:
-    """按请假记录 ID 和当前位置提交定位销假."""
-    return system.location_cancel(body.leaveId, body.latitude, body.longitude,
+    """自动挑选已结束未销假的请假记录并提交定位销假."""
+    return system.location_cancel(body.latitude, body.longitude,
                                   body.coordType)

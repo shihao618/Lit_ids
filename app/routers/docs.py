@@ -169,13 +169,13 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
         }},
     },
     ("POST", "/api/v1/xsfw/xsqj/location-cancel"): {
-        "request": {"leaveId": "60BF6CC18A575468E0638A6210AC18B7",
-                    "latitude": 34.610278, "longitude": 112.409723,
+        "request": {"latitude": 34.610278, "longitude": 112.409723,
                     "coordType": "auto"},
         "response": {"code": 0, "msg": "ok", "data": {
-            "submitted": True,
-            "leave": {"leaveId": "60BF6CC18A575468E0638A6210AC18B7",
-                      "cancelStatus": "1", "cancelStatusLabel": "已销假"},
+            "submitted": True, "count": 1,
+            "cancelled": [{"leaveId": "60BF6CC18A575468E0638A6210AC18B7",
+                           "cancelStatus": "1", "cancelStatusLabel": "已销假"}],
+            "failed": [],
             "location": {"name": "开元校区", "distance": 321.4,
                          "radius": 550.0, "inRange": True},
         }},
