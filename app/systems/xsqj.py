@@ -150,6 +150,29 @@ class XsqjSystem(BaseSystem):
         best = min(candidates, key=lambda item: item[0])
         return best[2], best[3], best[1]
 
+    def location_points(self) -> dict:
+        """获取官方定位销假地点（BD09 经纬度 + 允许偏差半径）."""
+        self.ensure_session()
+        _, info = self._post_data(self.DW_INFO_PATH, {})
+        if str(info.get("code")) not in ("0", "200"):
+            raise SystemError("查询定位销假地点失败: %s" % info.get("msg"),
+                              code=info.get("code"), http_status=502)
+        data = info.get("data") or {}
+        if str(data.get("KQDWXJ") or "0") != "1":
+            return {"code": 0, "msg": "定位销假未开启", "data": []}
+        items = []
+        for item in data.get("location") or []:
+            try:
+                items.append({
+                    "locationName": str(item.get("DWMC") or ""),
+                    "longitude": round(float(item.get("JDZB")), 7),
+                    "latitude": round(float(item.get("WDZB")), 7),
+                    "radius": round(float(item.get("YXPCJL") or 0), 1),
+                })
+            except (TypeError, ValueError):
+                continue
+        return {"code": 0, "msg": "ok", "data": items}
+
     def location_cancel(self, latitude: float, longitude: float,
                         coord_type: str = "auto") -> dict:
         """自动定位销假：自动挑选已通过、未销假、已到结束时间的请假记录."""

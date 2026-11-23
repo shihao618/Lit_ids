@@ -148,6 +148,14 @@ EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
         }},
     },
 
+    ("GET", "/api/v1/xsfw/xsqj/locations"): {
+        "response": {"code": 0, "msg": "ok", "data": [
+            {"locationName": "开元校区", "longitude": 112.426647,
+             "latitude": 34.61964, "radius": 550.0},
+            {"locationName": "王城校区", "longitude": 112.44153,
+             "latitude": 34.612239, "radius": 600.0},
+        ]},
+    },
     ("GET", "/api/v1/xsfw/xsqj/leaves"): {
         "response": {"code": 0, "msg": "ok", "data": {
             "total": 1,
@@ -327,6 +335,7 @@ DOC_SECTIONS = [
             ]},
             {"title": "学生请销假", "items": [
                 ("请假列表", "GET", "/api/v1/xsfw/xsqj/leaves"),
+                ("销假地点", "GET", "/api/v1/xsfw/xsqj/locations"),
                 ("定位销假", "POST", "/api/v1/xsfw/xsqj/location-cancel"),
             ]},
         ],

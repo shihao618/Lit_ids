@@ -445,7 +445,25 @@ X-API-Key: <你的 Key>
 }]}}
 ```
 
-### 4.8 智慧学工 / 学生请销假 / 定位销假
+### 4.8 智慧学工 / 学生请销假 / 销假地点
+
+```http
+GET /api/v1/xsfw/xsqj/locations
+X-API-Key: <你的 Key>
+```
+
+返回官方定位销假地点的 BD09 经纬度和允许偏差半径：
+
+```json
+{"code":0,"msg":"ok","data":[{
+  "locationName":"开元校区",
+  "longitude":112.426647,
+  "latitude":34.61964,
+  "radius":550.0
+}]}
+```
+
+### 4.9 智慧学工 / 学生请销假 / 定位销假
 
 ```http
 POST /api/v1/xsfw/xsqj/location-cancel
@@ -472,7 +490,7 @@ X-API-Key: <你的 Key>
 
 不在范围、没有符合条件的记录或定位销假未开启时不会提交。
 
-### 4.9 多用户与 API Key 规则
+### 4.10 多用户与 API Key 规则
 
 * 后台「👤 我的账号」可查看/复制/重新生成自己的 Key；**重新生成后旧 Key 立即失效**；
 * 不同 Key 对应不同用户的统一认证会话，互不影响；

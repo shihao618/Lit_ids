@@ -20,6 +20,12 @@ def leaves(system: XsqjSystem = Depends(get_xsqj)) -> dict[str, Any]:
     return system.leave_records()
 
 
+@router.get("/locations", summary="销假地点")
+def locations(system: XsqjSystem = Depends(get_xsqj)) -> dict[str, Any]:
+    """返回官方定位销假地点的 BD09 经纬度和允许偏差半径."""
+    return system.location_points()
+
+
 @router.post("/location-cancel", summary="定位销假")
 def location_cancel(body: LocationCancelIn,
                     system: XsqjSystem = Depends(get_xsqj)) -> dict[str, Any]:
