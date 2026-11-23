@@ -381,7 +381,7 @@ def test_xsqj_location_cancel(body: LocationCancelIn,
                              system=Depends(get_admin_xsqj)) -> dict[str, Any]:
     try:
         return {"ok": True, "data": system.location_cancel(
-            body.leaveId, body.latitude, body.longitude, body.coordType)}
+            body.latitude, body.longitude, body.coordType)}
     except (SystemError, SessionError) as e:
         return _err(e)
 
