@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 import urllib.parse
 from datetime import date, datetime, timedelta, timezone
 
@@ -111,16 +112,28 @@ class LljwSystem(BaseSystem):
             client = self.session.client
             cas_url = L.BASE + "/authserver/login?service=" + urllib.parse.quote(
                 self.service_url, safe="")
-            status, final_url, raw = client.get(
-                cas_url, headers={"User-Agent": L.UA,
-                                  "Accept": "text/html,application/xhtml+xml,*/*"})
-            text = raw.decode("utf-8", "replace")
-            if "/authserver/login" in final_url and "ticket=" not in final_url:
-                raise SystemError("CAS SSO 到教务系统失败（可能 CAS 会话已失效）",
-                                  code="SSO_FAILED", http_status=502,
-                                  hint=text[:160])
-            self._sso_ready = True
-            log.info("教务系统 SSO 完成: %s", final_url[:120])
+            last_url = ""
+            last_text = ""
+            for attempt in range(1, 6):
+                status, final_url, raw = client.get(
+                    cas_url, headers={"User-Agent": L.UA,
+                                      "Accept": "text/html,application/xhtml+xml,*/*"})
+                text = raw.decode("utf-8", "replace")
+                last_url, last_text = final_url, text
+                # CAS 可能短暂返回登录页或把 ticket 退回登录页；教务 SSO
+                # 在浏览器里也经常需要多点几次，这里做有限次数重试。
+                if "/authserver/login" not in final_url and "统一身份认证" not in text:
+                    if "未认证授权" not in text and "账号不存在教务系统中" not in text:
+                        self._sso_ready = True
+                        log.info("教务系统 SSO 完成: %s（第 %d 次尝试）",
+                                 final_url[:120], attempt)
+                        return
+                log.warning("教务系统 SSO 第 %d 次未完成: %s",
+                            attempt, final_url[:120])
+                time.sleep(0.8)
+            raise SystemError("CAS SSO 到教务系统失败（教务 SSO 多次未建立登录态）",
+                              code="SSO_FAILED", http_status=502,
+                              hint=(last_url + " | " + last_text)[:240])
 
     # ------------------------------------------------------------------ 页面 / 学期
     def _page_html(self) -> str:
