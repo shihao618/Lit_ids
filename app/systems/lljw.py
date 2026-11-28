@@ -114,23 +114,38 @@ class LljwSystem(BaseSystem):
                 self.service_url, safe="")
             last_url = ""
             last_text = ""
-            for attempt in range(1, 6):
+            for attempt in range(1, 9):
                 status, final_url, raw = client.get(
                     cas_url, headers={"User-Agent": L.UA,
-                                      "Accept": "text/html,application/xhtml+xml,*/*"})
+                                      "Accept": "text/html,application/xhtml+xml,*/*",
+                                      "Cache-Control": "no-cache"})
                 text = raw.decode("utf-8", "replace")
                 last_url, last_text = final_url, text
-                # CAS 可能短暂返回登录页或把 ticket 退回登录页；教务 SSO
-                # 在浏览器里也经常需要多点几次，这里做有限次数重试。
-                if "/authserver/login" not in final_url and "统一身份认证" not in text:
-                    if "未认证授权" not in text and "账号不存在教务系统中" not in text:
+                # 不能只看 URL 是否离开 CAS：lljw 失败时会跳回自己的登录
+                # 首页，页面里没有 xnxqdm。必须真正拿到课表页面才算成功。
+                if ("/authserver/login" not in final_url
+                        and "统一身份认证" not in text
+                        and "未认证授权" not in text
+                        and "账号不存在教务系统中" not in text):
+                    check_status, check_url, check_raw = client.get(
+                        self.WEEK_PAGE, headers={
+                            "User-Agent": L.UA,
+                            "Accept": "text/html,application/xhtml+xml,*/*",
+                            "Referer": self.HOST + "/new/welcome.page",
+                            "X-Requested-With": "XMLHttpRequest",
+                            "Cache-Control": "no-cache",
+                        })
+                    check_text = check_raw.decode("utf-8", "replace")
+                    if (check_status == 200 and "xnxqdm" in check_text
+                            and "/welcome.page" not in check_url):
                         self._sso_ready = True
                         log.info("教务系统 SSO 完成: %s（第 %d 次尝试）",
-                                 final_url[:120], attempt)
+                                 check_url[:120], attempt)
                         return
+                    last_url, last_text = check_url, check_text
                 log.warning("教务系统 SSO 第 %d 次未完成: %s",
                             attempt, final_url[:120])
-                time.sleep(0.8)
+                time.sleep(0.6)
             raise SystemError("CAS SSO 到教务系统失败（教务 SSO 多次未建立登录态）",
                               code="SSO_FAILED", http_status=502,
                               hint=(last_url + " | " + last_text)[:240])
